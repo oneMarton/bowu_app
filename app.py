@@ -88,7 +88,7 @@ def parse_clean_json(raw_str):
 # 1. 全局页面配置
 st.set_page_config(page_title="拨雾计划 - 商业矩阵终端", layout="wide", page_icon="🔮")
 
-# ====== V15 核心升级：客户端模式拦截器 ======
+# ====== 客户端模式拦截器 ======
 query_params = st.query_params
 client_cat = query_params.get("cat")
 client_id = query_params.get("id")
@@ -97,7 +97,7 @@ is_client_mode = bool(client_cat and client_id)
 all_records = load_records()
 
 if is_client_mode:
-    # 彻底隐藏后台工具，打造极致 C 端体验
+    # 彻底隐藏后台工具，打造极致 C 端体验 (免密阅读)
     st.markdown("""
         <style>
         [data-testid="stSidebar"] { display: none !important; }
@@ -123,6 +123,36 @@ if is_client_mode:
 
 else:
     # --- 正常主理人模式 ---
+    
+    # ====== V16 核心升级：主理人后台密码锁 ======
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
+        
+    if not st.session_state.authenticated:
+        # 拦截状态：显示密码输入框
+        st.markdown("""
+            <style>
+            .block-container { max-width: 500px; padding-top: 100px; }
+            [data-testid="stSidebar"] { display: none !important; }
+            header { visibility: hidden !important; }
+            </style>
+        """, unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align:center; margin-bottom: 30px; color: #00E5FF; letter-spacing: 2px;'>🔒 拨雾计划引擎终端</h2>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align:center; color: #888; margin-bottom: 30px;'>Admin Access Only / 主理人身份验证</p>", unsafe_allow_html=True)
+        
+        pwd = st.text_input("请输入访问密钥：", type="password", key="admin_pwd", placeholder="Please enter your access key...")
+        
+        # 【修改密码看这里】：把 "bowu888" 改成你想要的任何密码
+        if st.button("🔑 验证登入", use_container_width=True, type="primary"):
+            if pwd == "bowu888": 
+                st.session_state.authenticated = True
+                st.rerun()
+            else:
+                st.error("❌ 密钥错误，拒绝访问！触发防盗刷警报。")
+                
+        st.stop() # 密码不对，强行阻断下方所有后台代码的运行！
+
+    # ====== 密码验证通过后，显示正常后台 ======
     st.markdown("""
         <style>
         .block-container { 
@@ -268,7 +298,7 @@ if page_selection == "📊 全息能量档案":
             else:
                 # 已存档案，直接生成 C端 URL
                 st.markdown("---")
-                st.markdown("### 🔗 专属交付链接 (自动隐藏后台)")
+                st.markdown("### 🔗 专属交付链接 (自动隐藏后台并免密)")
                 st.caption("👇 点击输入框可自动复制全链接！将其发给客户，对方在手机上打开就是极简高端的查阅页面。")
                 components.html(f"""
                     <input type="text" id="shareLink" value="正在生成链接..." style="width:100%; padding:15px; border-radius:8px; border:2px solid #00E5FF; background:rgba(0, 229, 255, 0.05); color:#00E5FF; font-size:16px; font-weight:bold; outline:none; cursor:pointer;" readonly onclick="this.select(); document.execCommand('copy'); alert('✅ 链接已复制！去发给客户吧~');">
@@ -279,7 +309,7 @@ if page_selection == "📊 全息能量档案":
                 """, height=70)
 
 
-# 【人格版】与【合盘版】逻辑同理，采用极简重构
+# 【人格版】
 elif page_selection == "👁️ 内核透视矩阵":
     if not is_client_mode:
         st.title("👁️ 【拨雾计划】目标内核深度透析矩阵")
@@ -335,7 +365,7 @@ elif page_selection == "👁️ 内核透视矩阵":
                     if save_name.strip(): save_record("人格版", save_name.strip(), data); st.rerun() 
             else:
                 st.markdown("---")
-                st.markdown("### 🔗 专属交付链接 (自动隐藏后台)")
+                st.markdown("### 🔗 专属交付链接 (自动隐藏后台并免密)")
                 components.html(f"""
                     <input type="text" id="shareLink" value="正在生成链接..." style="width:100%; padding:15px; border-radius:8px; border:2px solid #FF4B4B; background:rgba(255, 75, 75, 0.05); color:#FF4B4B; font-size:16px; font-weight:bold; outline:none; cursor:pointer;" readonly onclick="this.select(); document.execCommand('copy'); alert('✅ 链接已复制！去发给客户吧~');">
                     <script> document.getElementById("shareLink").value = window.location.origin + window.location.pathname + "?cat=人格版&id={selected_record_npd}"; </script>
@@ -420,7 +450,7 @@ elif page_selection == "💞 双人宿命羁绊 (合盘版)":
                     if save_name.strip(): save_record("合盘版", save_name.strip(), data); st.rerun() 
             else:
                 st.markdown("---")
-                st.markdown("### 🔗 专属交付链接 (自动隐藏后台)")
+                st.markdown("### 🔗 专属交付链接 (自动隐藏后台并免密)")
                 components.html(f"""
                     <input type="text" id="shareLink" value="正在生成链接..." style="width:100%; padding:15px; border-radius:8px; border:2px solid #FF69B4; background:rgba(255, 105, 180, 0.05); color:#FF69B4; font-size:16px; font-weight:bold; outline:none; cursor:pointer;" readonly onclick="this.select(); document.execCommand('copy'); alert('✅ 链接已复制！去发给客户吧~');">
                     <script> document.getElementById("shareLink").value = window.location.origin + window.location.pathname + "?cat=合盘版&id={selected_record_syn}"; </script>
