@@ -248,8 +248,12 @@ if page_selection == "📊 全息能量档案":
         fig.add_trace(go.Scatter(x=df["日期"], y=df["感情"], mode='lines+markers', name='❤️ 感情/情绪', line=dict(color='#FF69B4', width=3, shape='spline')))
         fig.add_trace(go.Scatter(x=df["日期"], y=df["事业"], mode='lines+markers', name='🚀 事业势能', line=dict(color='#00E5FF', width=3, shape='spline')))
         fig.add_trace(go.Scatter(x=df["日期"], y=df["健康"], mode='lines+markers', name='🛡️ 健康机能', line=dict(color='#00FF7F', width=2, dash='dot', shape='spline')))
-        fig.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', xaxis_type='category', legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5), hovermode="x unified", height=450, margin=dict(l=0, r=0, t=40, b=0))
-        st.plotly_chart(fig, use_container_width=True)
+        # --- 修复滑动误触：增加 dragmode=False 和 fixedrange=True ---
+        fig.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', xaxis_type='category', legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5), hovermode="x unified", height=450, margin=dict(l=0, r=0, t=40, b=0), dragmode=False)
+        fig.update_xaxes(fixedrange=True)
+        fig.update_yaxes(fixedrange=True)
+        # config={'displayModeBar': False} 隐藏右上角工具栏
+        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
         st.markdown("---")
         st.markdown("### 📅 战袍与能量干预包")
@@ -346,8 +350,9 @@ elif page_selection == "👁️ 内核透视矩阵":
         categories = list(data["雷达图"].keys()); values = list(data["雷达图"].values())
         values.append(values[0]); categories.append(categories[0])
         fig = go.Figure(go.Scatterpolar(r=values, theta=categories, fill='toself', fillcolor='rgba(255, 75, 75, 0.4)', line=dict(color='#FF4B4B', width=2)))
-        fig.update_layout(polar=dict(bgcolor='rgba(0,0,0,0)', radialaxis=dict(visible=True, range=[0, 100], color='rgba(255,255,255,0.5)', gridcolor='rgba(255,255,255,0.1)'), angularaxis=dict(color='white', gridcolor='rgba(255,255,255,0.1)')), showlegend=False, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', height=500)
-        st.plotly_chart(fig, use_container_width=True)
+        # --- 修复滑动误触 ---
+        fig.update_layout(polar=dict(bgcolor='rgba(0,0,0,0)', radialaxis=dict(visible=True, range=[0, 100], color='rgba(255,255,255,0.5)', gridcolor='rgba(255,255,255,0.1)'), angularaxis=dict(color='white', gridcolor='rgba(255,255,255,0.1)')), showlegend=False, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', height=500, dragmode=False)
+        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
         st.markdown("---")
         st.markdown("### 📜 临床级命理交叉诊断书")
@@ -412,8 +417,9 @@ elif page_selection == "💞 双人宿命羁绊 (合盘版)":
         with col_score:
             score = data['合盘总评'].get('契合度分数', 50)
             fig_gauge = go.Figure(go.Indicator(mode = "gauge+number", value = score, title = {'text': "❤️ 宿命契合度", 'font': {'color': 'white'}}, gauge = {'axis': {'range': [None, 100], 'tickcolor': "white"}, 'bar': {'color': "#FF69B4"}, 'bgcolor': "rgba(0,0,0,0)", 'borderwidth': 2, 'bordercolor': "gray", 'steps': [{'range': [0, 40], 'color': "rgba(255, 75, 75, 0.3)"}, {'range': [40, 80], 'color': "rgba(255, 215, 0, 0.3)"}, {'range': [80, 100], 'color': "rgba(0, 229, 255, 0.3)"}]}))
-            fig_gauge.update_layout(paper_bgcolor="rgba(0,0,0,0)", font={'color': "white"}, height=300, margin=dict(l=20, r=20, t=50, b=20))
-            st.plotly_chart(fig_gauge, use_container_width=True)
+            # --- 修复滑动误触 ---
+            fig_gauge.update_layout(paper_bgcolor="rgba(0,0,0,0)", font={'color': "white"}, height=300, margin=dict(l=20, r=20, t=50, b=20), dragmode=False)
+            st.plotly_chart(fig_gauge, use_container_width=True, config={'displayModeBar': False})
         with col_desc:
             st.write(""); st.write("")
             st.info(f"**📖 宿命羁绊定调**：\n\n{data['合盘总评'].get('宿命羁绊定调', '')}")
@@ -435,8 +441,9 @@ elif page_selection == "💞 双人宿命羁绊 (合盘版)":
         fig_radar = go.Figure()
         fig_radar.add_trace(go.Scatterpolar(r=val_A, theta=cat_closed, fill='toself', name='A方(如女方)', fillcolor='rgba(0, 229, 255, 0.4)', line=dict(color='#00E5FF', width=2)))
         fig_radar.add_trace(go.Scatterpolar(r=val_B, theta=cat_closed, fill='toself', name='B方(如男方)', fillcolor='rgba(255, 105, 180, 0.4)', line=dict(color='#FF69B4', width=2)))
-        fig_radar.update_layout(polar=dict(bgcolor='rgba(0,0,0,0)', radialaxis=dict(visible=True, range=[0, 100], color='rgba(255,255,255,0.5)', gridcolor='rgba(255,255,255,0.1)'), angularaxis=dict(color='white', gridcolor='rgba(255,255,255,0.1)')), showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.1, xanchor="center", x=0.5), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', height=500)
-        st.plotly_chart(fig_radar, use_container_width=True)
+        # --- 修复滑动误触 ---
+        fig_radar.update_layout(polar=dict(bgcolor='rgba(0,0,0,0)', radialaxis=dict(visible=True, range=[0, 100], color='rgba(255,255,255,0.5)', gridcolor='rgba(255,255,255,0.1)'), angularaxis=dict(color='white', gridcolor='rgba(255,255,255,0.1)')), showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.1, xanchor="center", x=0.5), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', height=500, dragmode=False)
+        st.plotly_chart(fig_radar, use_container_width=True, config={'displayModeBar': False})
 
         st.markdown("---")
         st.markdown("### 📜 交叉博弈深度解析")
