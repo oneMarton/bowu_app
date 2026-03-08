@@ -299,14 +299,9 @@ if page_selection == "📊 全息能量档案":
                 # 已存档案，直接生成 C端 URL
                 st.markdown("---")
                 st.markdown("### 🔗 专属交付链接 (自动隐藏后台并免密)")
-                st.caption("👇 点击输入框可自动复制全链接！将其发给客户，对方在手机上打开就是极简高端的查阅页面。")
-                components.html(f"""
-                    <input type="text" id="shareLink" value="正在生成链接..." style="width:100%; padding:15px; border-radius:8px; border:2px solid #00E5FF; background:rgba(0, 229, 255, 0.05); color:#00E5FF; font-size:16px; font-weight:bold; outline:none; cursor:pointer;" readonly onclick="this.select(); document.execCommand('copy'); alert('✅ 链接已复制！去发给客户吧~');">
-                    <script>
-                        const url = window.location.origin + window.location.pathname + "?cat=运势版&id={selected_record}";
-                        document.getElementById("shareLink").value = url;
-                    </script>
-                """, height=70)
+                st.caption("👇 点击下方代码框右上角的【复制图标】，即可一键复制并发送给客户！")
+                share_url = f"https://bowuplan.streamlit.app/?cat=运势版&id={selected_record}"
+                st.code(share_url, language="text")
 
 
 # 【人格版】
@@ -366,10 +361,9 @@ elif page_selection == "👁️ 内核透视矩阵":
             else:
                 st.markdown("---")
                 st.markdown("### 🔗 专属交付链接 (自动隐藏后台并免密)")
-                components.html(f"""
-                    <input type="text" id="shareLink" value="正在生成链接..." style="width:100%; padding:15px; border-radius:8px; border:2px solid #FF4B4B; background:rgba(255, 75, 75, 0.05); color:#FF4B4B; font-size:16px; font-weight:bold; outline:none; cursor:pointer;" readonly onclick="this.select(); document.execCommand('copy'); alert('✅ 链接已复制！去发给客户吧~');">
-                    <script> document.getElementById("shareLink").value = window.location.origin + window.location.pathname + "?cat=人格版&id={selected_record_npd}"; </script>
-                """, height=70)
+                st.caption("👇 点击下方代码框右上角的【复制图标】，即可一键复制并发送给客户！")
+                share_url = f"https://bowuplan.streamlit.app/?cat=人格版&id={selected_record_npd}"
+                st.code(share_url, language="text")
 
 
 # 【合盘版】
@@ -451,7 +445,6 @@ elif page_selection == "💞 双人宿命羁绊 (合盘版)":
             else:
                 st.markdown("---")
                 st.markdown("### 🔗 专属交付链接 (自动隐藏后台并免密)")
-                components.html(f"""
-                    <input type="text" id="shareLink" value="正在生成链接..." style="width:100%; padding:15px; border-radius:8px; border:2px solid #FF69B4; background:rgba(255, 105, 180, 0.05); color:#FF69B4; font-size:16px; font-weight:bold; outline:none; cursor:pointer;" readonly onclick="this.select(); document.execCommand('copy'); alert('✅ 链接已复制！去发给客户吧~');">
-                    <script> document.getElementById("shareLink").value = window.location.origin + window.location.pathname + "?cat=合盘版&id={selected_record_syn}"; </script>
-                """, height=70)
+                st.caption("👇 点击下方代码框右上角的【复制图标】，即可一键复制并发送给客户！")
+                share_url = f"https://bowuplan.streamlit.app/?cat=合盘版&id={selected_record_syn}"
+                st.code(share_url, language="text")
