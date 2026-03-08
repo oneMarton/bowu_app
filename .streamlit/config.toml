@@ -1,0 +1,14 @@
+[theme]
+# 强制全局使用暗黑模式，彻底屏蔽手机白天的浅色主题
+base = "dark"
+
+# 拨雾计划品牌主色调（赛博青亮色）
+primaryColor = "#00E5FF"
+
+# 极度深邃的背景色（比纯黑更有质感）
+backgroundColor = "#0E1117"
+secondaryBackgroundColor = "#1E2130"
+
+# 全局文字强制为高亮白色，确保无论何时都清晰可见
+textColor = "#FAFAFA"
+font = "sans serif"
