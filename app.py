@@ -163,7 +163,7 @@ else:
         
         # 【修改密码看这里】：把 "bowu888" 改成你想要的任何密码
         if st.button("🔑 验证登入", use_container_width=True, type="primary"):
-            if pwd == "bowu888": 
+            if pwd == "wgkmdtsg12345": 
                 st.session_state.authenticated = True
                 st.rerun()
             else:
@@ -494,3 +494,4 @@ elif page_selection == "💞 双人宿命羁绊 (合盘版)":
                 encoded_id = urllib.parse.quote(selected_record_syn)
                 share_url = f"https://bowuplan.streamlit.app/?cat={encoded_cat}&id={encoded_id}"
                 st.code(share_url, language="text")
+
