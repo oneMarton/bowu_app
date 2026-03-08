@@ -6,6 +6,7 @@ import os
 import requests
 from datetime import datetime
 import streamlit.components.v1 as components
+import urllib.parse # 新增：用于给链接套上防截断保护膜
 
 # --- 双擎数据库配置 (本地+云端) ---
 DATA_FILE = "bowu_records.json"
@@ -300,7 +301,11 @@ if page_selection == "📊 全息能量档案":
                 st.markdown("---")
                 st.markdown("### 🔗 专属交付链接 (自动隐藏后台并免密)")
                 st.caption("👇 点击下方代码框右上角的【复制图标】，即可一键复制并发送给客户！")
-                share_url = f"https://bowuplan.streamlit.app/?cat=运势版&id={selected_record}"
+                
+                # 对链接核心参数进行 URL 安全编码防截断
+                encoded_cat = urllib.parse.quote("运势版")
+                encoded_id = urllib.parse.quote(selected_record)
+                share_url = f"https://bowuplan.streamlit.app/?cat={encoded_cat}&id={encoded_id}"
                 st.code(share_url, language="text")
 
 
@@ -362,7 +367,11 @@ elif page_selection == "👁️ 内核透视矩阵":
                 st.markdown("---")
                 st.markdown("### 🔗 专属交付链接 (自动隐藏后台并免密)")
                 st.caption("👇 点击下方代码框右上角的【复制图标】，即可一键复制并发送给客户！")
-                share_url = f"https://bowuplan.streamlit.app/?cat=人格版&id={selected_record_npd}"
+                
+                # 对链接核心参数进行 URL 安全编码防截断
+                encoded_cat = urllib.parse.quote("人格版")
+                encoded_id = urllib.parse.quote(selected_record_npd)
+                share_url = f"https://bowuplan.streamlit.app/?cat={encoded_cat}&id={encoded_id}"
                 st.code(share_url, language="text")
 
 
@@ -446,5 +455,9 @@ elif page_selection == "💞 双人宿命羁绊 (合盘版)":
                 st.markdown("---")
                 st.markdown("### 🔗 专属交付链接 (自动隐藏后台并免密)")
                 st.caption("👇 点击下方代码框右上角的【复制图标】，即可一键复制并发送给客户！")
-                share_url = f"https://bowuplan.streamlit.app/?cat=合盘版&id={selected_record_syn}"
+                
+                # 对链接核心参数进行 URL 安全编码防截断
+                encoded_cat = urllib.parse.quote("合盘版")
+                encoded_id = urllib.parse.quote(selected_record_syn)
+                share_url = f"https://bowuplan.streamlit.app/?cat={encoded_cat}&id={encoded_id}"
                 st.code(share_url, language="text")
