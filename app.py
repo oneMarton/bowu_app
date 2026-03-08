@@ -89,21 +89,19 @@ def parse_clean_json(raw_str):
 # 1. 全局页面配置 (修复：强制每次刷新都默认展开侧边栏)
 st.set_page_config(page_title="拨雾计划 - 商业矩阵终端", layout="wide", page_icon="🔮", initial_sidebar_state="expanded")
 
-# ====== 暴力抹除官方云的所有痕迹 (全白标化 V2 终极版) ======
+# ====== 暴力抹除官方云的所有痕迹 (全白标化 V3 终极版) ======
 st.markdown("""
     <style>
-    /* 隐藏右上角默认菜单 */
-    #MainMenu { display: none !important; }
-    /* 隐藏底部 Created by Streamlit 页脚 */
-    footer { display: none !important; }
-    /* 终极暴力隐藏右下角的 Manage App 和 Streamlit Logo 浮窗 (覆盖所有新老版本标签) */
-    .viewerBadge_container { display: none !important; }
-    .viewerBadge_link { display: none !important; }
-    .viewerBadge_text { display: none !important; }
-    [data-testid="stViewerBadge"] { display: none !important; }
-    [data-testid="manage-app-button"] { display: none !important; }
-    /* 隐藏顶部可能出现的 Toolbar */
-    [data-testid="stToolbar"] { display: none !important; }
+    /* 彻底隐藏底部水印和默认菜单 */
+    #MainMenu, footer { display: none !important; }
+    [data-testid="stBottom"], [data-testid="stBottomBlock"] { display: none !important; }
+    
+    /* 终极暴力隐藏右下角的悬浮控件 */
+    .viewerBadge_container, .viewerBadge_link, .viewerBadge_text { display: none !important; }
+    [data-testid="stViewerBadge"], [data-testid="manage-app-button"] { display: none !important; }
+    
+    /* 隐藏顶部右上角工具栏，但【绝对不能】用 display:none 误杀整个顶部导致箭头消失 */
+    [data-testid="stToolbar"] { visibility: hidden !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -120,7 +118,7 @@ if is_client_mode:
     st.markdown("""
         <style>
         [data-testid="stSidebar"] { display: none !important; }
-        header { visibility: hidden !important; }
+        header { display: none !important; } /* C端模式不需要任何顶部按钮 */
         .block-container { 
             padding-top: 2rem; padding-bottom: 2rem; max-width: 900px !important; margin: 0 auto;
             background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' version='1.1' height='200px' width='200px'><text x='-30' y='100' fill='rgba(255,255,255,0.02)' font-size='24' transform='rotate(-45)'>拨雾计划 BOWU.PRO</text></svg>");
@@ -153,7 +151,7 @@ else:
             <style>
             .block-container { max-width: 500px; padding-top: 100px; }
             [data-testid="stSidebar"] { display: none !important; }
-            /* 修复：移除了 header 隐藏代码，防止误杀侧边栏召唤箭头 */
+            header { display: none !important; } /* 密码界面隐藏顶部，保持纯净 */
             </style>
         """, unsafe_allow_html=True)
         st.markdown("<h2 style='text-align:center; margin-bottom: 30px; color: #00E5FF; letter-spacing: 2px;'>🔒 拨雾计划引擎终端</h2>", unsafe_allow_html=True)
@@ -174,6 +172,19 @@ else:
     # ====== 密码验证通过后，显示正常后台 ======
     st.markdown("""
         <style>
+        /* 🚀 核心修复：为主理人强行召唤并点亮左上角的侧边栏箭头！ */
+        header { display: block !important; background: transparent !important; }
+        [data-testid="collapsedControl"] { 
+            display: flex !important; 
+            visibility: visible !important; 
+            opacity: 1 !important; 
+            background-color: rgba(0, 229, 255, 0.15) !important; 
+            border-radius: 50% !important;
+            border: 1px solid #00E5FF !important;
+            z-index: 999999 !important;
+        }
+        [data-testid="collapsedControl"]:hover { background-color: rgba(0, 229, 255, 0.4) !important; }
+
         .block-container { 
             padding-top: 2rem; padding-bottom: 2rem;
             background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' version='1.1' height='200px' width='200px'><text x='-30' y='100' fill='rgba(255,255,255,0.02)' font-size='24' transform='rotate(-45)'>拨雾计划 BOWU.PRO</text></svg>");
