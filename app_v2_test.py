@@ -86,7 +86,7 @@ def parse_clean_json(raw_str):
         return json.loads(clean_str)
     return json.loads(raw_str)
 
-# 1. 全局页面配置 (强制每次刷新都默认展开侧边栏)
+# 1. 全局页面配置
 st.set_page_config(page_title="拨雾计划 - 商业矩阵终端", layout="wide", page_icon="🔮", initial_sidebar_state="expanded")
 
 # ====== 暴力抹除官方云的所有痕迹 ======
@@ -100,7 +100,6 @@ st.markdown("""
     /* 隐藏网页内部可能出现的官方浮窗 */
     .viewerBadge_container, .viewerBadge_link, .viewerBadge_text { display: none !important; }
     [data-testid="stViewerBadge"] { display: none !important; }
-    /* 注意：千万不能隐藏 stToolbar，否则会连带误杀侧边栏召唤箭头！ */
     </style>
 """, unsafe_allow_html=True)
 
@@ -113,7 +112,7 @@ is_client_mode = bool(client_cat and client_id)
 all_records = load_records()
 
 if is_client_mode:
-    # 彻底隐藏后台工具，打造极致 C 端体验 (免密阅读)
+    # 彻底隐藏后台工具，打造极致 C 端体验
     st.markdown("""
         <style>
         [data-testid="stSidebar"] { display: none !important; }
@@ -135,23 +134,19 @@ if is_client_mode:
     
     page_map = {"运势版": "📊 全息能量档案", "人格版": "👁️ 内核透视矩阵", "合盘版": "💞 双人宿命羁绊 (合盘版)"}
     page_selection = page_map.get(client_cat, "📊 全息能量档案")
-    show_teleprompter = False # 强制关闭销讲
+    show_teleprompter = False 
     st.markdown("<h4 style='text-align:center; color:#888; letter-spacing: 5px; font-weight: 300; margin-bottom: 30px;'>— 拨雾计划 专属数字档案 —</h4>", unsafe_allow_html=True)
 
 else:
     # --- 正常主理人模式 ---
-    
-    # ====== V16 核心升级：主理人后台密码锁 ======
     if "authenticated" not in st.session_state:
         st.session_state.authenticated = False
         
     if not st.session_state.authenticated:
-        # 拦截状态：显示密码输入框
         st.markdown("""
             <style>
             .block-container { max-width: 500px; padding-top: 100px; }
             [data-testid="stSidebar"] { display: none !important; }
-            /* 登录界面强制隐藏召唤箭头和头部，保持纯净 */
             [data-testid="collapsedControl"] { display: none !important; }
             header { display: none !important; }
             </style>
@@ -161,7 +156,6 @@ else:
         
         pwd = st.text_input("请输入访问密钥：", type="password", key="admin_pwd", placeholder="Please enter your access key...")
         
-        # 【修改密码看这里】：把 "bowu888" 改成你想要的任何密码
         if st.button("🔑 验证登入", use_container_width=True, type="primary"):
             if pwd == "bowu888": 
                 st.session_state.authenticated = True
@@ -169,14 +163,10 @@ else:
             else:
                 st.error("❌ 密钥错误，拒绝访问！触发防盗刷警报。")
                 
-        st.stop() # 密码不对，强行阻断下方所有后台代码的运行！
+        st.stop() 
 
-    # ====== 密码验证通过后，显示正常后台 ======
     st.markdown("""
         <style>
-        /* 🚀 终极修复：删掉所有花哨的侧边栏发光特效，把排版权还给 Streamlit！ */
-        /* 只要我们不乱动代码，原生的召唤小箭头就会乖乖停在左上角！ */
-
         .block-container { 
             padding-top: 2rem; padding-bottom: 2rem;
             background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' version='1.1' height='200px' width='200px'><text x='-30' y='100' fill='rgba(255,255,255,0.02)' font-size='24' transform='rotate(-45)'>拨雾计划 BOWU.PRO</text></svg>");
@@ -325,7 +315,8 @@ if page_selection == "📊 全息能量档案":
                 st.caption("👇 点击下方代码框右上角的【复制图标】，即可一键复制并发送给客户！")
                 encoded_cat = urllib.parse.quote("运势版")
                 encoded_id = urllib.parse.quote(selected_record)
-                share_url = f"https://bowuplan.streamlit.app/?cat={encoded_cat}&id={encoded_id}"
+                # 🚀 修复点：强制沙盒版生成 bowuapp-test 的专属链接
+                share_url = f"https://bowuapp-test.streamlit.app/?cat={encoded_cat}&id={encoded_id}"
                 st.code(share_url, language="text")
 
 
@@ -397,7 +388,8 @@ elif page_selection == "👁️ 内核透视矩阵":
                 st.caption("👇 点击下方代码框右上角的【复制图标】，即可一键复制并发送给客户！")
                 encoded_cat = urllib.parse.quote("人格版")
                 encoded_id = urllib.parse.quote(selected_record_npd)
-                share_url = f"https://bowuplan.streamlit.app/?cat={encoded_cat}&id={encoded_id}"
+                # 🚀 修复点：强制沙盒版生成 bowuapp-test 的专属链接
+                share_url = f"https://bowuapp-test.streamlit.app/?cat={encoded_cat}&id={encoded_id}"
                 st.code(share_url, language="text")
 
 
@@ -492,7 +484,8 @@ elif page_selection == "💞 双人宿命羁绊 (合盘版)":
                 st.caption("👇 点击下方代码框右上角的【复制图标】，即可一键复制并发送给客户！")
                 encoded_cat = urllib.parse.quote("合盘版")
                 encoded_id = urllib.parse.quote(selected_record_syn)
-                share_url = f"https://bowuplan.streamlit.app/?cat={encoded_cat}&id={encoded_id}"
+                # 🚀 修复点：强制沙盒版生成 bowuapp-test 的专属链接
+                share_url = f"https://bowuapp-test.streamlit.app/?cat={encoded_cat}&id={encoded_id}"
                 st.code(share_url, language="text")
 
 # ================= 底部留资与转化模块 (仅C端且有数据时可见) =================
