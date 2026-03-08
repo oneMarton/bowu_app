@@ -495,7 +495,7 @@ if is_client_mode and data_to_render:
     
     # 🎯 核心升级：把你们团队【所有人】的微信号写在下面的方括号里！
     # 注意：微信号必须用英文双引号包住，中间用英文逗号隔开。
-    wechat_ids = ["wxid_amo3trq7chwb22", " A-Wxrrbb"] 
+    wechat_ids = ["Xiaoyizhenren367", " A-Wxrrbb"] 
     
     # 🎲 引擎每次被客户打开时，会自动从上面的名单里随机抽取一个，实现 50/50 流量分发！
     wechat_id = random.choice(wechat_ids) 
