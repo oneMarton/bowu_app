@@ -7,6 +7,7 @@ import requests
 from datetime import datetime
 import streamlit.components.v1 as components
 import urllib.parse 
+import random # 🚀 新增：用于随机分发微信号的“盲盒分流引擎”
 
 # --- 双擎数据库配置 (本地+云端) ---
 DATA_FILE = "bowu_records.json"
@@ -490,12 +491,69 @@ elif page_selection == "💞 双人宿命羁绊 (合盘版)":
 
 # ================= 底部留资与转化模块 (仅C端且有数据时可见) =================
 if is_client_mode and data_to_render:
-    st.markdown("<br><br>", unsafe_allow_html=True)
-    st.markdown("""
-        <div style="text-align:center; padding: 40px 20px; background: linear-gradient(145deg, rgba(0,229,255,0.05) 0%, rgba(255,105,180,0.05) 100%); border-radius: 15px; border: 1px solid rgba(255,255,255,0.05); margin-top: 40px;">
-            <h3 style="color: #FAFAFA; margin-bottom: 10px; font-weight: 400; letter-spacing: 2px;">需要针对性的深度破局？</h3>
-            <p style="color: #888; font-size: 14px; margin-bottom: 25px;">您的数字档案仅展现了当前维度的部分信息。<br>如需更深度的命理推演或现实风水干预，请联系您的专属主理人。</p>
-            <div style="display: inline-block; background-color: rgba(0, 229, 255, 0.1); border: 1px solid #00E5FF; color: #00E5FF; padding: 10px 30px; border-radius: 30px; font-weight: bold; letter-spacing: 1px;">截图保存此页 · 发送给主理人</div>
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # 🎯 核心升级：把你们团队【所有人】的微信号写在下面的方括号里！
+    # 注意：微信号必须用英文双引号包住，中间用英文逗号隔开。
+    wechat_ids = ["wxid_amo3trq7chwb22", " A-Wxrrbb"] 
+    
+    # 🎲 引擎每次被客户打开时，会自动从上面的名单里随机抽取一个，实现 50/50 流量分发！
+    wechat_id = random.choice(wechat_ids) 
+    
+    html_code = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ margin: 0; padding: 0; background-color: transparent; font-family: "sans serif", -apple-system, BlinkMacSystemFont, sans-serif; }}
+            .cta-container {{ text-align: center; padding: 40px 20px; background: linear-gradient(145deg, rgba(0,229,255,0.05) 0%, rgba(255,105,180,0.05) 100%); border-radius: 15px; border: 1px solid rgba(255,255,255,0.05); }}
+            .btn {{ cursor: pointer; display: inline-block; background-color: rgba(0, 229, 255, 0.1); border: 1px solid #00E5FF; color: #00E5FF; padding: 12px 30px; border-radius: 30px; font-weight: bold; letter-spacing: 1px; font-size: 15px; transition: all 0.3s ease; outline: none; box-shadow: 0 4px 15px rgba(0, 229, 255, 0.15); }}
+            .btn:active {{ transform: scale(0.95); box-shadow: 0 2px 5px rgba(0, 229, 255, 0.15); }}
+        </style>
+    </head>
+    <body>
+        <div class="cta-container">
+            <h3 style="color: #FAFAFA; margin-top: 0; margin-bottom: 10px; font-weight: 400; letter-spacing: 2px;">需要针对性的深度破局？</h3>
+            <p style="color: #888; font-size: 14px; margin-bottom: 25px; line-height: 1.6;">您的数字档案仅展现了当前维度的部分信息。<br>如需更深度的命理推演或现实风水干预，请联系专属主理人。</p>
+            
+            <button class="btn" id="copyBtn" onclick="copyText()">
+                ➕ 一键复制主理人微信
+            </button>
+            
+            <p style="color:#444; font-size:12px; margin-top: 30px; margin-bottom: 0; letter-spacing: 1px;">© 拨雾计划 BOWU.PRO 版权所有</p>
         </div>
-        <p style="text-align:center; color:#444; font-size:12px; margin-top: 30px; letter-spacing: 1px;">© 拨雾计划 BOWU.PRO 版权所有</p>
-    """, unsafe_allow_html=True)
+
+        <script>
+            function copyText() {{
+                // 自动生成一个隐藏的文本框来完成复制动作
+                var textArea = document.createElement("textarea");
+                textArea.value = "{wechat_id}";
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                
+                // 按钮变绿，给客户极其爽快的反馈感
+                var btn = document.getElementById('copyBtn');
+                btn.innerHTML = "✅ 微信号已复制！快去微信添加";
+                btn.style.backgroundColor = "rgba(0, 255, 127, 0.15)";
+                btn.style.borderColor = "#00FF7F";
+                btn.style.color = "#00FF7F";
+                btn.style.boxShadow = "0 4px 15px rgba(0, 255, 127, 0.2)";
+                
+                // 3秒后恢复原状
+                setTimeout(function() {{
+                    btn.innerHTML = "➕ 一键复制主理人微信";
+                    btn.style.backgroundColor = "rgba(0, 229, 255, 0.1)";
+                    btn.style.borderColor = "#00E5FF";
+                    btn.style.color = "#00E5FF";
+                    btn.style.boxShadow = "0 4px 15px rgba(0, 229, 255, 0.15)";
+                }}, 3000);
+            }}
+        </script>
+    </body>
+    </html>
+    """
+    
+    # 嵌入带有 JavaScript 交互的真实按钮
+    components.html(html_code, height=350)
