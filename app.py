@@ -92,15 +92,15 @@ st.set_page_config(page_title="拨雾计划 - 商业矩阵终端", layout="wide"
 # ====== 暴力抹除官方云的所有痕迹 ======
 st.markdown("""
     <style>
-    /* 隐藏右上角默认菜单 */
+    /* 隐藏右上角默认菜单和部署按钮 */
     #MainMenu { display: none !important; }
+    .stDeployButton { display: none !important; }
     /* 隐藏底部 Created by Streamlit 页脚 */
     footer { display: none !important; }
     /* 隐藏网页内部可能出现的官方浮窗 */
     .viewerBadge_container, .viewerBadge_link, .viewerBadge_text { display: none !important; }
-    [data-testid="stViewerBadge"], [data-testid="manage-app-button"] { display: none !important; }
-    /* 隐藏顶部右上角工具栏 */
-    [data-testid="stToolbar"] { visibility: hidden !important; }
+    [data-testid="stViewerBadge"] { display: none !important; }
+    /* 注意：千万不能隐藏 stToolbar，否则会连带误杀侧边栏召唤箭头！ */
     </style>
 """, unsafe_allow_html=True)
 
@@ -117,7 +117,7 @@ if is_client_mode:
     st.markdown("""
         <style>
         [data-testid="stSidebar"] { display: none !important; }
-        [data-testid="collapsedControl"], [data-testid="stSidebarCollapsedControl"] { display: none !important; }
+        [data-testid="collapsedControl"] { display: none !important; }
         header { display: none !important; } 
         .block-container { 
             padding-top: 2rem; padding-bottom: 2rem; max-width: 900px !important; margin: 0 auto;
@@ -151,8 +151,9 @@ else:
             <style>
             .block-container { max-width: 500px; padding-top: 100px; }
             [data-testid="stSidebar"] { display: none !important; }
-            /* 登录界面强制隐藏召唤箭头，防止绕过密码 */
-            [data-testid="collapsedControl"], [data-testid="stSidebarCollapsedControl"] { display: none !important; }
+            /* 登录界面强制隐藏召唤箭头和头部，保持纯净 */
+            [data-testid="collapsedControl"] { display: none !important; }
+            header { display: none !important; }
             </style>
         """, unsafe_allow_html=True)
         st.markdown("<h2 style='text-align:center; margin-bottom: 30px; color: #00E5FF; letter-spacing: 2px;'>🔒 拨雾计划引擎终端</h2>", unsafe_allow_html=True)
@@ -173,32 +174,8 @@ else:
     # ====== 密码验证通过后，显示正常后台 ======
     st.markdown("""
         <style>
-        /* 🚀 终极修复：确保头部可见，兼容最新版 Streamlit 的侧边栏按钮，并加上发光特效 */
-        header { display: block !important; visibility: visible !important; background: transparent !important; }
-
-        [data-testid="collapsedControl"], 
-        [data-testid="stSidebarCollapsedControl"] { 
-            display: flex !important; 
-            visibility: visible !important; 
-            opacity: 1 !important; 
-            background-color: rgba(0, 229, 255, 0.15) !important; 
-            border: 2px solid #00E5FF !important;
-            border-radius: 50% !important;
-            box-shadow: 0 0 15px rgba(0, 229, 255, 0.6) !important;
-            z-index: 999999 !important;
-            width: 45px !important;
-            height: 45px !important;
-            justify-content: center !important;
-            align-items: center !important;
-            margin-left: 10px !important;
-            margin-top: 10px !important;
-        }
-        [data-testid="collapsedControl"]:hover, 
-        [data-testid="stSidebarCollapsedControl"]:hover { 
-            background-color: rgba(0, 229, 255, 0.4) !important; 
-            transform: scale(1.1) !important;
-            transition: all 0.2s ease-in-out !important;
-        }
+        /* 🚀 终极修复：删掉所有花哨的侧边栏发光特效，把排版权还给 Streamlit！ */
+        /* 只要我们不乱动代码，原生的召唤小箭头就会乖乖停在左上角！ */
 
         .block-container { 
             padding-top: 2rem; padding-bottom: 2rem;
