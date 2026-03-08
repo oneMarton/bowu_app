@@ -89,6 +89,22 @@ def parse_clean_json(raw_str):
 # 1. 全局页面配置
 st.set_page_config(page_title="拨雾计划 - 商业矩阵终端", layout="wide", page_icon="🔮")
 
+# ====== 暴力抹除官方云的所有痕迹 (全白标化) ======
+st.markdown("""
+    <style>
+    /* 隐藏右上角默认菜单 */
+    #MainMenu { visibility: hidden !important; }
+    /* 隐藏底部 Created by Streamlit 页脚 */
+    footer { visibility: hidden !important; }
+    /* 终极暴力隐藏右下角的 Manage App 和 Streamlit Logo 浮窗 */
+    .viewerBadge_container { display: none !important; }
+    .viewerBadge_link { display: none !important; }
+    [data-testid="manage-app-button"] { display: none !important; }
+    /* 隐藏顶部可能出现的 Toolbar */
+    [data-testid="stToolbar"] { display: none !important; }
+    </style>
+""", unsafe_allow_html=True)
+
 # ====== 客户端模式拦截器 ======
 query_params = st.query_params
 client_cat = query_params.get("cat")
@@ -145,7 +161,7 @@ else:
         
         # 【修改密码看这里】：把 "bowu888" 改成你想要的任何密码
         if st.button("🔑 验证登入", use_container_width=True, type="primary"):
-            if pwd == "bowu888": 
+            if pwd == "wgkmdtsg12345": 
                 st.session_state.authenticated = True
                 st.rerun()
             else:
@@ -350,8 +366,16 @@ elif page_selection == "👁️ 内核透视矩阵":
         categories = list(data["雷达图"].keys()); values = list(data["雷达图"].values())
         values.append(values[0]); categories.append(categories[0])
         fig = go.Figure(go.Scatterpolar(r=values, theta=categories, fill='toself', fillcolor='rgba(255, 75, 75, 0.4)', line=dict(color='#FF4B4B', width=2)))
-        # --- 修复滑动误触 ---
-        fig.update_layout(polar=dict(bgcolor='rgba(0,0,0,0)', radialaxis=dict(visible=True, range=[0, 100], color='rgba(255,255,255,0.5)', gridcolor='rgba(255,255,255,0.1)'), angularaxis=dict(color='white', gridcolor='rgba(255,255,255,0.1)')), showlegend=False, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', height=500, dragmode=False)
+        # --- 修复滑动误触与手机端文字被切断 ---
+        fig.update_layout(
+            polar=dict(
+                bgcolor='rgba(0,0,0,0)', 
+                radialaxis=dict(visible=True, range=[0, 100], color='rgba(255,255,255,0.5)', gridcolor='rgba(255,255,255,0.1)'), 
+                angularaxis=dict(color='white', gridcolor='rgba(255,255,255,0.1)', tickfont=dict(size=11))
+            ), 
+            showlegend=False, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', 
+            height=400, dragmode=False, margin=dict(l=85, r=85, t=30, b=30)
+        )
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
         st.markdown("---")
@@ -441,8 +465,17 @@ elif page_selection == "💞 双人宿命羁绊 (合盘版)":
         fig_radar = go.Figure()
         fig_radar.add_trace(go.Scatterpolar(r=val_A, theta=cat_closed, fill='toself', name='A方(如女方)', fillcolor='rgba(0, 229, 255, 0.4)', line=dict(color='#00E5FF', width=2)))
         fig_radar.add_trace(go.Scatterpolar(r=val_B, theta=cat_closed, fill='toself', name='B方(如男方)', fillcolor='rgba(255, 105, 180, 0.4)', line=dict(color='#FF69B4', width=2)))
-        # --- 修复滑动误触 ---
-        fig_radar.update_layout(polar=dict(bgcolor='rgba(0,0,0,0)', radialaxis=dict(visible=True, range=[0, 100], color='rgba(255,255,255,0.5)', gridcolor='rgba(255,255,255,0.1)'), angularaxis=dict(color='white', gridcolor='rgba(255,255,255,0.1)')), showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.1, xanchor="center", x=0.5), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', height=500, dragmode=False)
+        # --- 修复滑动误触与手机端文字被切断 ---
+        fig_radar.update_layout(
+            polar=dict(
+                bgcolor='rgba(0,0,0,0)', 
+                radialaxis=dict(visible=True, range=[0, 100], color='rgba(255,255,255,0.5)', gridcolor='rgba(255,255,255,0.1)'), 
+                angularaxis=dict(color='white', gridcolor='rgba(255,255,255,0.1)', tickfont=dict(size=11))
+            ), 
+            showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.1, xanchor="center", x=0.5), 
+            plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', 
+            height=420, dragmode=False, margin=dict(l=85, r=85, t=30, b=30)
+        )
         st.plotly_chart(fig_radar, use_container_width=True, config={'displayModeBar': False})
 
         st.markdown("---")
