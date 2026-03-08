@@ -86,8 +86,8 @@ def parse_clean_json(raw_str):
         return json.loads(clean_str)
     return json.loads(raw_str)
 
-# 1. 全局页面配置
-st.set_page_config(page_title="拨雾计划 - 商业矩阵终端", layout="wide", page_icon="🔮")
+# 1. 全局页面配置 (修复：强制每次刷新都默认展开侧边栏)
+st.set_page_config(page_title="拨雾计划 - 商业矩阵终端", layout="wide", page_icon="🔮", initial_sidebar_state="expanded")
 
 # ====== 暴力抹除官方云的所有痕迹 (全白标化 V2 终极版) ======
 st.markdown("""
@@ -153,7 +153,7 @@ else:
             <style>
             .block-container { max-width: 500px; padding-top: 100px; }
             [data-testid="stSidebar"] { display: none !important; }
-            header { visibility: hidden !important; }
+            /* 修复：移除了 header 隐藏代码，防止误杀侧边栏召唤箭头 */
             </style>
         """, unsafe_allow_html=True)
         st.markdown("<h2 style='text-align:center; margin-bottom: 30px; color: #00E5FF; letter-spacing: 2px;'>🔒 拨雾计划引擎终端</h2>", unsafe_allow_html=True)
@@ -163,7 +163,7 @@ else:
         
         # 【修改密码看这里】：把 "bowu888" 改成你想要的任何密码
         if st.button("🔑 验证登入", use_container_width=True, type="primary"):
-            if pwd == "wgkmdtsg12345": 
+            if pwd == "bowu888": 
                 st.session_state.authenticated = True
                 st.rerun()
             else:
