@@ -12,3 +12,10 @@ secondaryBackgroundColor = "#1E2130"
 # 全局文字强制为高亮白色，确保无论何时都清晰可见
 textColor = "#FAFAFA"
 font = "sans serif"
+
+[client]
+# 极简模式：隐藏右上角的多余菜单和开发者工具，打造纯净的品牌专属产品
+toolbarMode = "minimal"
+
+# 安全锁：关闭向前端用户展示详细的错误代码，防止底层逻辑和机密泄露
+showErrorDetails = false
