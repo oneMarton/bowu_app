@@ -89,16 +89,18 @@ def parse_clean_json(raw_str):
 # 1. 全局页面配置
 st.set_page_config(page_title="拨雾计划 - 商业矩阵终端", layout="wide", page_icon="🔮")
 
-# ====== 暴力抹除官方云的所有痕迹 (全白标化) ======
+# ====== 暴力抹除官方云的所有痕迹 (全白标化 V2 终极版) ======
 st.markdown("""
     <style>
     /* 隐藏右上角默认菜单 */
-    #MainMenu { visibility: hidden !important; }
+    #MainMenu { display: none !important; }
     /* 隐藏底部 Created by Streamlit 页脚 */
-    footer { visibility: hidden !important; }
-    /* 终极暴力隐藏右下角的 Manage App 和 Streamlit Logo 浮窗 */
+    footer { display: none !important; }
+    /* 终极暴力隐藏右下角的 Manage App 和 Streamlit Logo 浮窗 (覆盖所有新老版本标签) */
     .viewerBadge_container { display: none !important; }
     .viewerBadge_link { display: none !important; }
+    .viewerBadge_text { display: none !important; }
+    [data-testid="stViewerBadge"] { display: none !important; }
     [data-testid="manage-app-button"] { display: none !important; }
     /* 隐藏顶部可能出现的 Toolbar */
     [data-testid="stToolbar"] { display: none !important; }
