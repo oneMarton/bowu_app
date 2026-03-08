@@ -6,7 +6,7 @@ import os
 import requests
 from datetime import datetime
 import streamlit.components.v1 as components
-import urllib.parse # 新增：用于给链接套上防截断保护膜
+import urllib.parse 
 
 # --- 双擎数据库配置 (本地+云端) ---
 DATA_FILE = "bowu_records.json"
@@ -86,21 +86,20 @@ def parse_clean_json(raw_str):
         return json.loads(clean_str)
     return json.loads(raw_str)
 
-# 1. 全局页面配置 (修复：强制每次刷新都默认展开侧边栏)
+# 1. 全局页面配置 (强制每次刷新都默认展开侧边栏)
 st.set_page_config(page_title="拨雾计划 - 商业矩阵终端", layout="wide", page_icon="🔮", initial_sidebar_state="expanded")
 
-# ====== 暴力抹除官方云的所有痕迹 (全白标化 V3 终极版) ======
+# ====== 暴力抹除官方云的所有痕迹 ======
 st.markdown("""
     <style>
-    /* 彻底隐藏底部水印和默认菜单 */
-    #MainMenu, footer { display: none !important; }
-    [data-testid="stBottom"], [data-testid="stBottomBlock"] { display: none !important; }
-    
-    /* 终极暴力隐藏右下角的悬浮控件 */
+    /* 隐藏右上角默认菜单 */
+    #MainMenu { display: none !important; }
+    /* 隐藏底部 Created by Streamlit 页脚 */
+    footer { display: none !important; }
+    /* 隐藏网页内部可能出现的官方浮窗 */
     .viewerBadge_container, .viewerBadge_link, .viewerBadge_text { display: none !important; }
     [data-testid="stViewerBadge"], [data-testid="manage-app-button"] { display: none !important; }
-    
-    /* 隐藏顶部右上角工具栏，但【绝对不能】用 display:none 误杀整个顶部导致箭头消失 */
+    /* 隐藏顶部右上角工具栏 */
     [data-testid="stToolbar"] { visibility: hidden !important; }
     </style>
 """, unsafe_allow_html=True)
@@ -118,7 +117,8 @@ if is_client_mode:
     st.markdown("""
         <style>
         [data-testid="stSidebar"] { display: none !important; }
-        header { display: none !important; } /* C端模式不需要任何顶部按钮 */
+        [data-testid="collapsedControl"], [data-testid="stSidebarCollapsedControl"] { display: none !important; }
+        header { display: none !important; } 
         .block-container { 
             padding-top: 2rem; padding-bottom: 2rem; max-width: 900px !important; margin: 0 auto;
             background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' version='1.1' height='200px' width='200px'><text x='-30' y='100' fill='rgba(255,255,255,0.02)' font-size='24' transform='rotate(-45)'>拨雾计划 BOWU.PRO</text></svg>");
@@ -151,7 +151,8 @@ else:
             <style>
             .block-container { max-width: 500px; padding-top: 100px; }
             [data-testid="stSidebar"] { display: none !important; }
-            header { display: none !important; } /* 密码界面隐藏顶部，保持纯净 */
+            /* 登录界面强制隐藏召唤箭头，防止绕过密码 */
+            [data-testid="collapsedControl"], [data-testid="stSidebarCollapsedControl"] { display: none !important; }
             </style>
         """, unsafe_allow_html=True)
         st.markdown("<h2 style='text-align:center; margin-bottom: 30px; color: #00E5FF; letter-spacing: 2px;'>🔒 拨雾计划引擎终端</h2>", unsafe_allow_html=True)
@@ -172,18 +173,32 @@ else:
     # ====== 密码验证通过后，显示正常后台 ======
     st.markdown("""
         <style>
-        /* 🚀 核心修复：为主理人强行召唤并点亮左上角的侧边栏箭头！ */
-        header { display: block !important; background: transparent !important; }
-        [data-testid="collapsedControl"] { 
+        /* 🚀 终极修复：确保头部可见，兼容最新版 Streamlit 的侧边栏按钮，并加上发光特效 */
+        header { display: block !important; visibility: visible !important; background: transparent !important; }
+
+        [data-testid="collapsedControl"], 
+        [data-testid="stSidebarCollapsedControl"] { 
             display: flex !important; 
             visibility: visible !important; 
             opacity: 1 !important; 
             background-color: rgba(0, 229, 255, 0.15) !important; 
+            border: 2px solid #00E5FF !important;
             border-radius: 50% !important;
-            border: 1px solid #00E5FF !important;
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.6) !important;
             z-index: 999999 !important;
+            width: 45px !important;
+            height: 45px !important;
+            justify-content: center !important;
+            align-items: center !important;
+            margin-left: 10px !important;
+            margin-top: 10px !important;
         }
-        [data-testid="collapsedControl"]:hover { background-color: rgba(0, 229, 255, 0.4) !important; }
+        [data-testid="collapsedControl"]:hover, 
+        [data-testid="stSidebarCollapsedControl"]:hover { 
+            background-color: rgba(0, 229, 255, 0.4) !important; 
+            transform: scale(1.1) !important;
+            transition: all 0.2s ease-in-out !important;
+        }
 
         .block-container { 
             padding-top: 2rem; padding-bottom: 2rem;
@@ -277,11 +292,9 @@ if page_selection == "📊 全息能量档案":
         fig.add_trace(go.Scatter(x=df["日期"], y=df["感情"], mode='lines+markers', name='❤️ 感情/情绪', line=dict(color='#FF69B4', width=3, shape='spline')))
         fig.add_trace(go.Scatter(x=df["日期"], y=df["事业"], mode='lines+markers', name='🚀 事业势能', line=dict(color='#00E5FF', width=3, shape='spline')))
         fig.add_trace(go.Scatter(x=df["日期"], y=df["健康"], mode='lines+markers', name='🛡️ 健康机能', line=dict(color='#00FF7F', width=2, dash='dot', shape='spline')))
-        # --- 修复滑动误触：增加 dragmode=False 和 fixedrange=True ---
         fig.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', xaxis_type='category', legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5), hovermode="x unified", height=450, margin=dict(l=0, r=0, t=40, b=0), dragmode=False)
         fig.update_xaxes(fixedrange=True)
         fig.update_yaxes(fixedrange=True)
-        # config={'displayModeBar': False} 隐藏右上角工具栏
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
         st.markdown("---")
@@ -330,12 +343,9 @@ if page_selection == "📊 全息能量档案":
                         else: st.error("⚠️ 请先输入客户标识！")
                 st.markdown('</div>', unsafe_allow_html=True)
             else:
-                # 已存档案，直接生成 C端 URL
                 st.markdown("---")
                 st.markdown("### 🔗 专属交付链接 (自动隐藏后台并免密)")
                 st.caption("👇 点击下方代码框右上角的【复制图标】，即可一键复制并发送给客户！")
-                
-                # 对链接核心参数进行 URL 安全编码防截断
                 encoded_cat = urllib.parse.quote("运势版")
                 encoded_id = urllib.parse.quote(selected_record)
                 share_url = f"https://bowuplan.streamlit.app/?cat={encoded_cat}&id={encoded_id}"
@@ -379,7 +389,6 @@ elif page_selection == "👁️ 内核透视矩阵":
         categories = list(data["雷达图"].keys()); values = list(data["雷达图"].values())
         values.append(values[0]); categories.append(categories[0])
         fig = go.Figure(go.Scatterpolar(r=values, theta=categories, fill='toself', fillcolor='rgba(255, 75, 75, 0.4)', line=dict(color='#FF4B4B', width=2)))
-        # --- 修复滑动误触与手机端文字被切断 ---
         fig.update_layout(
             polar=dict(
                 bgcolor='rgba(0,0,0,0)', 
@@ -409,8 +418,6 @@ elif page_selection == "👁️ 内核透视矩阵":
                 st.markdown("---")
                 st.markdown("### 🔗 专属交付链接 (自动隐藏后台并免密)")
                 st.caption("👇 点击下方代码框右上角的【复制图标】，即可一键复制并发送给客户！")
-                
-                # 对链接核心参数进行 URL 安全编码防截断
                 encoded_cat = urllib.parse.quote("人格版")
                 encoded_id = urllib.parse.quote(selected_record_npd)
                 share_url = f"https://bowuplan.streamlit.app/?cat={encoded_cat}&id={encoded_id}"
@@ -454,7 +461,6 @@ elif page_selection == "💞 双人宿命羁绊 (合盘版)":
         with col_score:
             score = data['合盘总评'].get('契合度分数', 50)
             fig_gauge = go.Figure(go.Indicator(mode = "gauge+number", value = score, title = {'text': "❤️ 宿命契合度", 'font': {'color': 'white'}}, gauge = {'axis': {'range': [None, 100], 'tickcolor': "white"}, 'bar': {'color': "#FF69B4"}, 'bgcolor': "rgba(0,0,0,0)", 'borderwidth': 2, 'bordercolor': "gray", 'steps': [{'range': [0, 40], 'color': "rgba(255, 75, 75, 0.3)"}, {'range': [40, 80], 'color': "rgba(255, 215, 0, 0.3)"}, {'range': [80, 100], 'color': "rgba(0, 229, 255, 0.3)"}]}))
-            # --- 修复滑动误触 ---
             fig_gauge.update_layout(paper_bgcolor="rgba(0,0,0,0)", font={'color': "white"}, height=300, margin=dict(l=20, r=20, t=50, b=20), dragmode=False)
             st.plotly_chart(fig_gauge, use_container_width=True, config={'displayModeBar': False})
         with col_desc:
@@ -478,7 +484,6 @@ elif page_selection == "💞 双人宿命羁绊 (合盘版)":
         fig_radar = go.Figure()
         fig_radar.add_trace(go.Scatterpolar(r=val_A, theta=cat_closed, fill='toself', name='A方(如女方)', fillcolor='rgba(0, 229, 255, 0.4)', line=dict(color='#00E5FF', width=2)))
         fig_radar.add_trace(go.Scatterpolar(r=val_B, theta=cat_closed, fill='toself', name='B方(如男方)', fillcolor='rgba(255, 105, 180, 0.4)', line=dict(color='#FF69B4', width=2)))
-        # --- 修复滑动误触与手机端文字被切断 ---
         fig_radar.update_layout(
             polar=dict(
                 bgcolor='rgba(0,0,0,0)', 
@@ -508,8 +513,6 @@ elif page_selection == "💞 双人宿命羁绊 (合盘版)":
                 st.markdown("---")
                 st.markdown("### 🔗 专属交付链接 (自动隐藏后台并免密)")
                 st.caption("👇 点击下方代码框右上角的【复制图标】，即可一键复制并发送给客户！")
-                
-                # 对链接核心参数进行 URL 安全编码防截断
                 encoded_cat = urllib.parse.quote("合盘版")
                 encoded_id = urllib.parse.quote(selected_record_syn)
                 share_url = f"https://bowuplan.streamlit.app/?cat={encoded_cat}&id={encoded_id}"
