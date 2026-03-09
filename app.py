@@ -7,6 +7,7 @@ import requests
 from datetime import datetime
 import streamlit.components.v1 as components
 import urllib.parse 
+import random # 🚀 已合并：盲盒分流引擎依赖
 
 # --- 双擎数据库配置 (本地+云端) ---
 DATA_FILE = "bowu_records.json"
@@ -86,7 +87,7 @@ def parse_clean_json(raw_str):
         return json.loads(clean_str)
     return json.loads(raw_str)
 
-# 1. 全局页面配置 (强制每次刷新都默认展开侧边栏)
+# 1. 全局页面配置
 st.set_page_config(page_title="拨雾计划 - 商业矩阵终端", layout="wide", page_icon="🔮", initial_sidebar_state="expanded")
 
 # ====== 暴力抹除官方云的所有痕迹 ======
@@ -100,7 +101,6 @@ st.markdown("""
     /* 隐藏网页内部可能出现的官方浮窗 */
     .viewerBadge_container, .viewerBadge_link, .viewerBadge_text { display: none !important; }
     [data-testid="stViewerBadge"] { display: none !important; }
-    /* 注意：千万不能隐藏 stToolbar，否则会连带误杀侧边栏召唤箭头！ */
     </style>
 """, unsafe_allow_html=True)
 
@@ -113,7 +113,7 @@ is_client_mode = bool(client_cat and client_id)
 all_records = load_records()
 
 if is_client_mode:
-    # 彻底隐藏后台工具，打造极致 C 端体验 (免密阅读)
+    # 彻底隐藏后台工具，打造极致 C 端体验
     st.markdown("""
         <style>
         [data-testid="stSidebar"] { display: none !important; }
@@ -135,23 +135,19 @@ if is_client_mode:
     
     page_map = {"运势版": "📊 全息能量档案", "人格版": "👁️ 内核透视矩阵", "合盘版": "💞 双人宿命羁绊 (合盘版)"}
     page_selection = page_map.get(client_cat, "📊 全息能量档案")
-    show_teleprompter = False # 强制关闭销讲
+    show_teleprompter = False 
     st.markdown("<h4 style='text-align:center; color:#888; letter-spacing: 5px; font-weight: 300; margin-bottom: 30px;'>— 拨雾计划 专属数字档案 —</h4>", unsafe_allow_html=True)
 
 else:
     # --- 正常主理人模式 ---
-    
-    # ====== V16 核心升级：主理人后台密码锁 ======
     if "authenticated" not in st.session_state:
         st.session_state.authenticated = False
         
     if not st.session_state.authenticated:
-        # 拦截状态：显示密码输入框
         st.markdown("""
             <style>
             .block-container { max-width: 500px; padding-top: 100px; }
             [data-testid="stSidebar"] { display: none !important; }
-            /* 登录界面强制隐藏召唤箭头和头部，保持纯净 */
             [data-testid="collapsedControl"] { display: none !important; }
             header { display: none !important; }
             </style>
@@ -161,7 +157,6 @@ else:
         
         pwd = st.text_input("请输入访问密钥：", type="password", key="admin_pwd", placeholder="Please enter your access key...")
         
-        # 【修改密码看这里】：把 "bowu888" 改成你想要的任何密码
         if st.button("🔑 验证登入", use_container_width=True, type="primary"):
             if pwd == "wgkmdtsg12345": 
                 st.session_state.authenticated = True
@@ -169,14 +164,10 @@ else:
             else:
                 st.error("❌ 密钥错误，拒绝访问！触发防盗刷警报。")
                 
-        st.stop() # 密码不对，强行阻断下方所有后台代码的运行！
+        st.stop() 
 
-    # ====== 密码验证通过后，显示正常后台 ======
     st.markdown("""
         <style>
-        /* 🚀 终极修复：删掉所有花哨的侧边栏发光特效，把排版权还给 Streamlit！ */
-        /* 只要我们不乱动代码，原生的召唤小箭头就会乖乖停在左上角！ */
-
         .block-container { 
             padding-top: 2rem; padding-bottom: 2rem;
             background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' version='1.1' height='200px' width='200px'><text x='-30' y='100' fill='rgba(255,255,255,0.02)' font-size='24' transform='rotate(-45)'>拨雾计划 BOWU.PRO</text></svg>");
@@ -325,6 +316,7 @@ if page_selection == "📊 全息能量档案":
                 st.caption("👇 点击下方代码框右上角的【复制图标】，即可一键复制并发送给客户！")
                 encoded_cat = urllib.parse.quote("运势版")
                 encoded_id = urllib.parse.quote(selected_record)
+                # 🚀 已恢复正式服网址 bowuplan.streamlit.app
                 share_url = f"https://bowuplan.streamlit.app/?cat={encoded_cat}&id={encoded_id}"
                 st.code(share_url, language="text")
 
@@ -397,6 +389,7 @@ elif page_selection == "👁️ 内核透视矩阵":
                 st.caption("👇 点击下方代码框右上角的【复制图标】，即可一键复制并发送给客户！")
                 encoded_cat = urllib.parse.quote("人格版")
                 encoded_id = urllib.parse.quote(selected_record_npd)
+                # 🚀 已恢复正式服网址 bowuplan.streamlit.app
                 share_url = f"https://bowuplan.streamlit.app/?cat={encoded_cat}&id={encoded_id}"
                 st.code(share_url, language="text")
 
@@ -492,6 +485,68 @@ elif page_selection == "💞 双人宿命羁绊 (合盘版)":
                 st.caption("👇 点击下方代码框右上角的【复制图标】，即可一键复制并发送给客户！")
                 encoded_cat = urllib.parse.quote("合盘版")
                 encoded_id = urllib.parse.quote(selected_record_syn)
+                # 🚀 已恢复正式服网址 bowuplan.streamlit.app
                 share_url = f"https://bowuplan.streamlit.app/?cat={encoded_cat}&id={encoded_id}"
                 st.code(share_url, language="text")
 
+# ================= 底部留资与转化模块 (仅C端且有数据时可见) =================
+if is_client_mode and data_to_render:
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # 🎯 核心升级：包含多人的盲盒分流引擎！
+    wechat_ids = ["Xiaoyizhenren367", "A-Wxrrbb"] 
+    wechat_id = random.choice(wechat_ids) 
+    
+    html_code = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ margin: 0; padding: 0; background-color: transparent; font-family: "sans serif", -apple-system, BlinkMacSystemFont, sans-serif; }}
+            .cta-container {{ text-align: center; padding: 40px 20px; background: linear-gradient(145deg, rgba(0,229,255,0.05) 0%, rgba(255,105,180,0.05) 100%); border-radius: 15px; border: 1px solid rgba(255,255,255,0.05); }}
+            .btn {{ cursor: pointer; display: inline-block; background-color: rgba(0, 229, 255, 0.1); border: 1px solid #00E5FF; color: #00E5FF; padding: 12px 30px; border-radius: 30px; font-weight: bold; letter-spacing: 1px; font-size: 15px; transition: all 0.3s ease; outline: none; box-shadow: 0 4px 15px rgba(0, 229, 255, 0.15); }}
+            .btn:active {{ transform: scale(0.95); box-shadow: 0 2px 5px rgba(0, 229, 255, 0.15); }}
+        </style>
+    </head>
+    <body>
+        <div class="cta-container">
+            <h3 style="color: #FAFAFA; margin-top: 0; margin-bottom: 10px; font-weight: 400; letter-spacing: 2px;">需要针对性的深度破局？</h3>
+            <p style="color: #888; font-size: 14px; margin-bottom: 25px; line-height: 1.6;">您的数字档案仅展现了当前维度的部分信息。<br>如需更深度的命理推演或现实风水干预，请联系专属主理人。</p>
+            
+            <button class="btn" id="copyBtn" onclick="copyText()">
+                ➕ 一键复制主理人微信
+            </button>
+            
+            <p style="color:#444; font-size:12px; margin-top: 30px; margin-bottom: 0; letter-spacing: 1px;">© 拨雾计划 BOWU.PRO 版权所有</p>
+        </div>
+
+        <script>
+            function copyText() {{
+                var textArea = document.createElement("textarea");
+                textArea.value = "{wechat_id}";
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                
+                var btn = document.getElementById('copyBtn');
+                btn.innerHTML = "✅ 微信号已复制！快去微信添加";
+                btn.style.backgroundColor = "rgba(0, 255, 127, 0.15)";
+                btn.style.borderColor = "#00FF7F";
+                btn.style.color = "#00FF7F";
+                btn.style.boxShadow = "0 4px 15px rgba(0, 255, 127, 0.2)";
+                
+                setTimeout(function() {{
+                    btn.innerHTML = "➕ 一键复制主理人微信";
+                    btn.style.backgroundColor = "rgba(0, 229, 255, 0.1)";
+                    btn.style.borderColor = "#00E5FF";
+                    btn.style.color = "#00E5FF";
+                    btn.style.boxShadow = "0 4px 15px rgba(0, 229, 255, 0.15)";
+                }}, 3000);
+            }}
+        </script>
+    </body>
+    </html>
+    """
+    
+    components.html(html_code, height=350)
