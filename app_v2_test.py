@@ -7,7 +7,7 @@ import requests
 from datetime import datetime
 import streamlit.components.v1 as components
 import urllib.parse 
-import random # 🚀 新增：用于随机分发微信号的“盲盒分流引擎”
+import random 
 
 # --- 双擎数据库配置 (本地+云端) ---
 DATA_FILE = "bowu_records.json"
@@ -30,6 +30,7 @@ def load_records():
             if res.status_code == 200:
                 data = res.json().get("record", {})
                 if "合盘版" not in data: data["合盘版"] = {}
+                if "财富版" not in data: data["财富版"] = {} # 🚀 新增财富版数据库字段
                 with open(DATA_FILE, 'w', encoding='utf-8') as f:
                     json.dump(data, f, ensure_ascii=False, indent=2)
                 return data
@@ -40,9 +41,10 @@ def load_records():
             with open(DATA_FILE, 'r', encoding='utf-8') as f:
                 data = json.load(f)
                 if "合盘版" not in data: data["合盘版"] = {}
+                if "财富版" not in data: data["财富版"] = {} # 🚀 新增财富版数据库字段
                 return data
-        except Exception: return {"运势版": {}, "人格版": {}, "合盘版": {}}
-    return {"运势版": {}, "人格版": {}, "合盘版": {}}
+        except Exception: return {"运势版": {}, "人格版": {}, "合盘版": {}, "财富版": {}}
+    return {"运势版": {}, "人格版": {}, "合盘版": {}, "财富版": {}}
 
 def save_record(category, name, data):
     records = load_records()
@@ -93,12 +95,9 @@ st.set_page_config(page_title="拨雾计划 - 商业矩阵终端", layout="wide"
 # ====== 暴力抹除官方云的所有痕迹 ======
 st.markdown("""
     <style>
-    /* 隐藏右上角默认菜单和部署按钮 */
     #MainMenu { display: none !important; }
     .stDeployButton { display: none !important; }
-    /* 隐藏底部 Created by Streamlit 页脚 */
     footer { display: none !important; }
-    /* 隐藏网页内部可能出现的官方浮窗 */
     .viewerBadge_container, .viewerBadge_link, .viewerBadge_text { display: none !important; }
     [data-testid="stViewerBadge"] { display: none !important; }
     </style>
@@ -133,7 +132,8 @@ if is_client_mode:
         </style>
     """, unsafe_allow_html=True)
     
-    page_map = {"运势版": "📊 全息能量档案", "人格版": "👁️ 内核透视矩阵", "合盘版": "💞 双人宿命羁绊 (合盘版)"}
+    # 🚀 增加财富版页面路由
+    page_map = {"运势版": "📊 全息能量档案", "人格版": "👁️ 内核透视矩阵", "合盘版": "💞 双人宿命羁绊 (合盘版)", "财富版": "💰 流年财富透视矩阵 (搞钱专属)"}
     page_selection = page_map.get(client_cat, "📊 全息能量档案")
     show_teleprompter = False 
     st.markdown("<h4 style='text-align:center; color:#888; letter-spacing: 5px; font-weight: 300; margin-bottom: 30px;'>— 拨雾计划 专属数字档案 —</h4>", unsafe_allow_html=True)
@@ -186,7 +186,8 @@ else:
     """, unsafe_allow_html=True)
     
     st.sidebar.title("🧭 拨雾计划引擎矩阵")
-    page_selection = st.sidebar.radio("请选择要生成的交付报告：", ["📊 全息能量档案", "👁️ 内核透视矩阵", "💞 双人宿命羁绊 (合盘版)"])
+    # 🚀 在侧边栏增加第四台引擎的入口
+    page_selection = st.sidebar.radio("请选择要生成的交付报告：", ["📊 全息能量档案", "👁️ 内核透视矩阵", "💞 双人宿命羁绊 (合盘版)", "💰 流年财富透视矩阵 (搞钱专属)"])
     st.sidebar.markdown("---")
     
     with st.sidebar.expander("☁️ 团队云端同步配置 (SaaS联机)"):
@@ -297,7 +298,6 @@ if page_selection == "📊 全息能量档案":
                     with col_b:
                         st.warning(f"**⚠️ 高危预警**：\n\n{daily_data.get('预警', '')}"); st.error(f"**🛑 行为禁忌**：\n\n{daily_data.get('禁忌', '')}")
         
-        # === 核心：入库与生成分享链接 ===
         if not is_client_mode:
             if selected_record == "-- 新建档案 / 粘贴新数据 --":
                 st.markdown('<div class="save-module">### 💾 将此报告存入本地档案库', unsafe_allow_html=True)
@@ -316,7 +316,6 @@ if page_selection == "📊 全息能量档案":
                 st.caption("👇 点击下方代码框右上角的【复制图标】，即可一键复制并发送给客户！")
                 encoded_cat = urllib.parse.quote("运势版")
                 encoded_id = urllib.parse.quote(selected_record)
-                # 🚀 修复点：强制沙盒版生成 bowuapp-test 的专属链接
                 share_url = f"https://bowuapp-test.streamlit.app/?cat={encoded_cat}&id={encoded_id}"
                 st.code(share_url, language="text")
 
@@ -389,7 +388,6 @@ elif page_selection == "👁️ 内核透视矩阵":
                 st.caption("👇 点击下方代码框右上角的【复制图标】，即可一键复制并发送给客户！")
                 encoded_cat = urllib.parse.quote("人格版")
                 encoded_id = urllib.parse.quote(selected_record_npd)
-                # 🚀 修复点：强制沙盒版生成 bowuapp-test 的专属链接
                 share_url = f"https://bowuapp-test.streamlit.app/?cat={encoded_cat}&id={encoded_id}"
                 st.code(share_url, language="text")
 
@@ -485,7 +483,87 @@ elif page_selection == "💞 双人宿命羁绊 (合盘版)":
                 st.caption("👇 点击下方代码框右上角的【复制图标】，即可一键复制并发送给客户！")
                 encoded_cat = urllib.parse.quote("合盘版")
                 encoded_id = urllib.parse.quote(selected_record_syn)
-                # 🚀 修复点：强制沙盒版生成 bowuapp-test 的专属链接
+                share_url = f"https://bowuapp-test.streamlit.app/?cat={encoded_cat}&id={encoded_id}"
+                st.code(share_url, language="text")
+
+# 【财富版】🚀 核心新增：流年财富透视矩阵
+elif page_selection == "💰 流年财富透视矩阵 (搞钱专属)":
+    if not is_client_mode:
+        st.title("💰 【拨雾计划】流年财富透视矩阵")
+        st.markdown("---")
+        st.sidebar.markdown("### 📂 客户历史档案库")
+        wealth_history = list(all_records.get("财富版", {}).keys())
+        wealth_history.reverse()
+        selected_record_wealth = st.sidebar.selectbox("一键读取已存档案", ["-- 新建档案 / 粘贴新数据 --"] + wealth_history)
+        
+        if selected_record_wealth != "-- 新建档案 / 粘贴新数据 --":
+            st.sidebar.success(f"👁️ 正在查看：**{selected_record_wealth}**")
+            if st.sidebar.button("🗑️ 删除此档案", type="secondary", use_container_width=True):
+                delete_record("财富版", selected_record_wealth); st.rerun()
+            data_to_render = all_records["财富版"][selected_record_wealth]
+        else:
+            raw_json_input = st.sidebar.text_area("在此粘贴【财富版】JSON 代码", height=300)
+            if st.sidebar.button("🔄 确认并生成报告", type="primary", use_container_width=True): pass
+            if raw_json_input.strip():
+                try: data_to_render = parse_clean_json(raw_json_input)
+                except: st.error("⚠️ 解析失败，请检查 JSON 格式。")
+            else: st.markdown("<div class='empty-state'><h2>💰 搞钱引擎待机中...</h2></div>", unsafe_allow_html=True)
+    else:
+        data_to_render = all_records.get("财富版", {}).get(client_id)
+        if not data_to_render: st.error("⚠️ 链接已失效。")
+
+    if data_to_render and "搞钱六维雷达图" in data_to_render:
+        data = data_to_render
+        if show_teleprompter and not is_client_mode:
+            st.markdown("<div class='teleprompter'><h4>㊙️ 内部销讲话术</h4><p><b>💰 促单锚点：</b>重点放大客户‘破财黑洞’的恐惧感，或者‘爆发节点’的贪婪感。顺势抛出高客单价的风水局或全年私教服务。</p></div>", unsafe_allow_html=True)
+
+        if is_client_mode: st.markdown(f"<h2 style='text-align:center; color: #FFD700;'>💰 {client_id.split('(')[0].strip()} 的财富透视矩阵</h2><br>", unsafe_allow_html=True)
+
+        # 雷达图渲染：换成了极其耀眼的“暴富金”配色
+        st.markdown("### 🕸️ 搞钱六维雷达图 (财富基因检测)")
+        categories = list(data["搞钱六维雷达图"]["维度"])
+        values = list(data["搞钱六维雷达图"]["分值"])
+        values.append(values[0]); categories.append(categories[0])
+        fig = go.Figure(go.Scatterpolar(r=values, theta=categories, fill='toself', fillcolor='rgba(255, 215, 0, 0.4)', line=dict(color='#FFD700', width=2)))
+        fig.update_layout(
+            polar=dict(
+                bgcolor='rgba(0,0,0,0)', 
+                radialaxis=dict(visible=True, range=[0, 100], color='rgba(255,255,255,0.5)', gridcolor='rgba(255,255,255,0.1)'), 
+                angularaxis=dict(color='white', gridcolor='rgba(255,255,255,0.1)', tickfont=dict(size=11))
+            ), 
+            showlegend=False, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', 
+            height=400, dragmode=False, margin=dict(l=85, r=85, t=30, b=30)
+        )
+        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+
+        st.markdown("---")
+        st.markdown("### 👑 财富阶层与天命主场")
+        st.info(f"**💰 财富格局定调**：\n\n{data['财富总览'].get('财富格局定调', '')}")
+        st.success(f"**🎯 搞钱天命主场**：\n\n{data['财富总览'].get('搞钱天命主场', '')}")
+
+        st.markdown("---")
+        st.markdown("### 📈 流年财运精准狙击")
+        col_dyn1, col_dyn2 = st.columns(2)
+        with col_dyn1: st.success(f"**🚀 爆发节点 (猛烈出击)**：\n\n{data['流年财运动态'].get('爆发节点', '')}")
+        with col_dyn2: st.error(f"**💣 破财黑洞 (空仓蛰伏)**：\n\n{data['流年财运动态'].get('破财黑洞预警', '')}")
+
+        st.markdown("---")
+        st.markdown("### 🛡️ 护城河与风水干预")
+        st.warning(f"**🤝 合作与避坑指南**：\n\n{data['深度搞钱建议'].get('合作与避坑指南', '')}")
+        st.info(f"**🔮 能量风水加持**：\n\n{data['深度搞钱建议'].get('能量风水加持', '')}")
+        
+        if not is_client_mode:
+            if selected_record_wealth == "-- 新建档案 / 粘贴新数据 --":
+                st.markdown('<div class="save-module">### 💾 存入档案库', unsafe_allow_html=True)
+                save_name = st.text_input("客户标识（如：创投群-王总）：", key="save_name_wealth")
+                if st.button("💾 一键入库", type="primary"):
+                    if save_name.strip(): save_record("财富版", save_name.strip(), data); st.rerun() 
+            else:
+                st.markdown("---")
+                st.markdown("### 🔗 专属交付链接 (自动隐藏后台并免密)")
+                st.caption("👇 点击下方代码框右上角的【复制图标】，即可一键复制并发送给老板！")
+                encoded_cat = urllib.parse.quote("财富版")
+                encoded_id = urllib.parse.quote(selected_record_wealth)
                 share_url = f"https://bowuapp-test.streamlit.app/?cat={encoded_cat}&id={encoded_id}"
                 st.code(share_url, language="text")
 
@@ -493,11 +571,8 @@ elif page_selection == "💞 双人宿命羁绊 (合盘版)":
 if is_client_mode and data_to_render:
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # 🎯 核心升级：把你们团队【所有人】的微信号写在下面的方括号里！
-    # 注意：微信号必须用英文双引号包住，中间用英文逗号隔开。
-    wechat_ids = ["Xiaoyizhenren367", " A-Wxrrbb"] 
-    
-    # 🎲 引擎每次被客户打开时，会自动从上面的名单里随机抽取一个，实现 50/50 流量分发！
+    # 🎯 核心升级：包含多人的盲盒分流引擎！
+    wechat_ids = ["Xiaoyizhenren367", "A-Wxrrbb"] 
     wechat_id = random.choice(wechat_ids) 
     
     html_code = f"""
@@ -525,7 +600,6 @@ if is_client_mode and data_to_render:
 
         <script>
             function copyText() {{
-                // 自动生成一个隐藏的文本框来完成复制动作
                 var textArea = document.createElement("textarea");
                 textArea.value = "{wechat_id}";
                 document.body.appendChild(textArea);
@@ -533,7 +607,6 @@ if is_client_mode and data_to_render:
                 document.execCommand('copy');
                 document.body.removeChild(textArea);
                 
-                // 按钮变绿，给客户极其爽快的反馈感
                 var btn = document.getElementById('copyBtn');
                 btn.innerHTML = "✅ 微信号已复制！快去微信添加";
                 btn.style.backgroundColor = "rgba(0, 255, 127, 0.15)";
@@ -541,7 +614,6 @@ if is_client_mode and data_to_render:
                 btn.style.color = "#00FF7F";
                 btn.style.boxShadow = "0 4px 15px rgba(0, 255, 127, 0.2)";
                 
-                // 3秒后恢复原状
                 setTimeout(function() {{
                     btn.innerHTML = "➕ 一键复制主理人微信";
                     btn.style.backgroundColor = "rgba(0, 229, 255, 0.1)";
@@ -555,5 +627,4 @@ if is_client_mode and data_to_render:
     </html>
     """
     
-    # 嵌入带有 JavaScript 交互的真实按钮
     components.html(html_code, height=350)
