@@ -31,11 +31,22 @@ def load_records():
                 data = res.json().get("record", {})
                 if "合盘版" not in data: data["合盘版"] = {}
                 if "财富版" not in data: data["财富版"] = {}
+                
+                # 🚀 核心升级：精准统计云端数据条数，防止连到空箱子
+                total_records = sum(len(v) for v in data.values() if isinstance(v, dict))
+                st.session_state.cloud_debug_msg = f"✅ 连接成功！当前云端金库共有 {total_records} 条档案数据。"
+                
                 with open(DATA_FILE, 'w', encoding='utf-8') as f:
                     json.dump(data, f, ensure_ascii=False, indent=2)
                 return data
-        except Exception: pass
-    
+            else:
+                # 🚀 核心升级：如果密钥或ID填错了，明确报错！
+                st.session_state.cloud_debug_msg = f"❌ 连接被拒 (错误码:{res.status_code})。请检查 API Key 和 Bin ID 是否填错或多复制了空格！"
+        except Exception as e:
+            st.session_state.cloud_debug_msg = f"⚠️ 网络连接异常，正在读取本地缓存。"
+    else:
+        st.session_state.cloud_debug_msg = "⚪ 尚未连接云端，当前为本地断网模式。"
+        
     if os.path.exists(DATA_FILE):
         try:
             with open(DATA_FILE, 'r', encoding='utf-8') as f:
@@ -92,6 +103,9 @@ def parse_clean_json(raw_str):
 # 1. 全局页面配置
 st.set_page_config(page_title="拨雾计划 - 商业矩阵终端", layout="wide", page_icon="🔮", initial_sidebar_state="expanded")
 
+# 🚀 必须在页面配置后才能安全加载诊断信息
+all_records = load_records()
+
 # ====== 暴力抹除官方云的所有痕迹 ======
 st.markdown("""
     <style>
@@ -108,8 +122,6 @@ query_params = st.query_params
 client_cat = query_params.get("cat")
 client_id = query_params.get("id")
 is_client_mode = bool(client_cat and client_id)
-
-all_records = load_records()
 
 if is_client_mode:
     # 彻底隐藏后台工具，打造极致 C 端体验
@@ -157,7 +169,6 @@ else:
         pwd = st.text_input("请输入旗舰版密钥：", type="password", key="admin_pwd", placeholder="Please enter your access key...")
         
         if st.button("🔑 验证登入", use_container_width=True, type="primary"):
-            # 🎯 核心修改：正式版专属密码锁定
             if pwd == "wgkmdtsg12345": 
                 st.session_state.authenticated = True
                 st.rerun()
@@ -186,21 +197,30 @@ else:
     """, unsafe_allow_html=True)
     
     st.sidebar.title("🧭 拨雾计划引擎矩阵")
-    # 🎯 核心修改：增加版本水印
     st.sidebar.markdown("<div style='background-color:rgba(0,255,127,0.1); padding:8px; border-radius:5px; border-left:3px solid #00FF7F; margin-bottom:15px;'><span style='color:#00FF7F; font-size:12px; font-weight:bold;'>🟢 当前状态：正式旗舰版 v2.0</span></div>", unsafe_allow_html=True)
     
     page_selection = st.sidebar.radio("请选择要生成的交付报告：", ["📊 全息能量档案", "👁️ 内核透视矩阵", "💞 双人宿命羁绊 (合盘版)", "💰 流年财富透视矩阵 (搞钱专属)"])
     st.sidebar.markdown("---")
     
-    with st.sidebar.expander("☁️ 团队云端同步配置 (SaaS联机)"):
+    with st.sidebar.expander("☁️ 团队云端同步配置 (SaaS联机)", expanded=True):
         cfg = get_cloud_cfg()
+        
+        # 🚀 在这里显示极其直观的云端诊断信息！
+        if "cloud_debug_msg" in st.session_state:
+            if "✅" in st.session_state.cloud_debug_msg:
+                st.success(st.session_state.cloud_debug_msg)
+            elif "❌" in st.session_state.cloud_debug_msg:
+                st.error(st.session_state.cloud_debug_msg)
+            else:
+                st.info(st.session_state.cloud_debug_msg)
+
         st.caption("填入密钥后，你和团队成员的数据将实时同步！")
         c_api = st.text_input("API Key", value=cfg.get("api_key", ""), type="password")
         c_bin = st.text_input("Bin ID", value=cfg.get("bin_id", ""))
         if st.button("🔗 连接云端网络", use_container_width=True):
             if c_api.strip() and c_bin.strip():
                 with open(CLOUD_CFG_FILE, 'w', encoding='utf-8') as f: json.dump({"api_key": c_api.strip(), "bin_id": c_bin.strip()}, f)
-                st.success("✅ 云端配置已保存！"); st.rerun()
+                st.rerun() # 重新加载以触发雷达诊断
             else:
                 if os.path.exists(CLOUD_CFG_FILE): os.remove(CLOUD_CFG_FILE)
                 st.info("已断开云端。"); st.rerun()
@@ -569,7 +589,6 @@ elif page_selection == "💰 流年财富透视矩阵 (搞钱专属)":
 if is_client_mode and data_to_render:
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # 🎯 核心修改：已锁定你真实的微信 ID
     wechat_ids = ["Xiaoyizhenren367", "A-Wxrrbb"] 
     wechat_id = random.choice(wechat_ids) 
     
