@@ -358,7 +358,7 @@ else:
             if uploaded_img is None:
                 st.error("⚠️ 请先上传一张排盘截图！")
             else:
-                loading_msg = "🧠 正在链接 Gemini 1.5 PRO 进行极限推演... (需15-30秒，请勿频繁点击)" if "Pro" in model_choice else "⚡ 正在链接 Gemini 1.5 Flash 极速读取中... (需5-10秒)"
+                loading_msg = "🧠 拨雾引擎正在深度扫描排盘数据... (需15-30秒，请勿频繁点击)" if "Pro" in model_choice else "⚡ 拨雾引擎正在深度扫描排盘数据... (需5-10秒)"
                 with st.spinner(loading_msg):
                     result_text = analyze_bazi_image(uploaded_img, persona_tag, birth_info_tag, page_selection, actual_model_name)
                     
