@@ -82,11 +82,10 @@ def sync_to_cloud(data):
     cfg = get_cloud_cfg()
     if cfg.get("api_key") and cfg.get("bin_id"):
         try:
-            # 🚀 极其关键：必须加入 X-Bin-Versioning: false，彻底阻断云端历史版本冗余，防止免费容量被打爆导致代理商存不上档！
-            headers = {"X-Master-Key": cfg["api_key"], "Content-Type": "application/json", "X-Bin-Versioning": "false"}
+            # 🚀 修复 403 报错：去除了 X-Bin-Versioning 付费特权指令，恢复免费版的正常写入权限！
+            headers = {"X-Master-Key": cfg["api_key"], "Content-Type": "application/json"}
             res = requests.put(f"https://api.jsonbin.io/v3/b/{cfg['bin_id']}", json=data, headers=headers, timeout=8)
             if res.status_code != 200:
-                # 如果被拒收，立刻抛出全局警报！
                 st.session_state.global_error = f"⚠️ 云端金库写入异常 (错误码: {res.status_code})。数据可能未保存成功！"
         except Exception as e: 
             st.session_state.global_error = f"⚠️ 云端金库连接超时: {str(e)}"
