@@ -82,9 +82,14 @@ def sync_to_cloud(data):
     cfg = get_cloud_cfg()
     if cfg.get("api_key") and cfg.get("bin_id"):
         try:
-            headers = {"X-Master-Key": cfg["api_key"], "Content-Type": "application/json"}
-            requests.put(f"https://api.jsonbin.io/v3/b/{cfg['bin_id']}", json=data, headers=headers, timeout=5)
-        except Exception: pass
+            # 🚀 极其关键：必须加入 X-Bin-Versioning: false，彻底阻断云端历史版本冗余，防止免费容量被打爆导致代理商存不上档！
+            headers = {"X-Master-Key": cfg["api_key"], "Content-Type": "application/json", "X-Bin-Versioning": "false"}
+            res = requests.put(f"https://api.jsonbin.io/v3/b/{cfg['bin_id']}", json=data, headers=headers, timeout=8)
+            if res.status_code != 200:
+                # 如果被拒收，立刻抛出全局警报！
+                st.session_state.global_error = f"⚠️ 云端金库写入异常 (错误码: {res.status_code})。数据可能未保存成功！"
+        except Exception as e: 
+            st.session_state.global_error = f"⚠️ 云端金库连接超时: {str(e)}"
 
 def save_record(category, name, data):
     records = load_records()
@@ -383,7 +388,14 @@ else:
             st.rerun()
     else:
         st.sidebar.markdown("<div style='background-color:rgba(0,229,255,0.1); padding:8px; border-radius:5px; border-left:3px solid #00E5FF; margin-bottom:15px;'><span style='color:#00E5FF; font-size:12px; font-weight:bold;'>🔒 状态：代理商沙盒模式</span></div>", unsafe_allow_html=True)
-    
+        
+        # 🚀 给代理商的安全感：显示云端连通率，防止他们断网了还在盲干
+        agent_cfg = get_cloud_cfg()
+        if agent_cfg.get("api_key") and agent_cfg.get("bin_id"):
+            st.sidebar.markdown("<div style='background-color:rgba(0,255,127,0.1); padding:8px; border-radius:5px; border-left:3px solid #00FF7F; margin-bottom:15px;'><span style='color:#00FF7F; font-size:12px; font-weight:bold;'>☁️ 云端联机正常：可安全保存档案</span></div>", unsafe_allow_html=True)
+        else:
+            st.sidebar.markdown("<div style='background-color:rgba(255,75,75,0.1); padding:8px; border-radius:5px; border-left:3px solid #FF4B4B; margin-bottom:15px;'><span style='color:#FF4B4B; font-size:12px; font-weight:bold;'>⚠️ 云端断开：数据无法保存，请联系主理人</span></div>", unsafe_allow_html=True)
+
     page_selection = st.sidebar.radio("请选择要生成的交付报告：", ["📊 全息能量档案", "👁️ 内核透视矩阵", "💞 双人宿命羁绊 (合盘版)", "💰 流年财富透视矩阵 (搞钱专属)"])
     
     st.sidebar.markdown("---")
@@ -536,6 +548,13 @@ def render_history_sidebar(cat_name, state_key):
 
 # ================= 渲染核心逻辑分离 =================
 data_to_render = None
+
+# 🚀 监听并拦截全局云端报错，防止代理商白干活
+if st.session_state.get("global_error"):
+    st.error(st.session_state.global_error)
+    if st.button("我知道了，清除警报"):
+        st.session_state.global_error = ""
+        st.rerun()
 
 if not is_client_mode and st.session_state.get("new_link"):
     st.success(f"🎉 **{st.session_state.get('new_name', '')}** 的档案已成功入库！\n\n👇 **请立刻复制下方链接发送给客户：**")
