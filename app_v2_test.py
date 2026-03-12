@@ -8,6 +8,13 @@ from datetime import datetime
 import streamlit.components.v1 as components
 import urllib.parse 
 import random 
+import google.generativeai as genai
+from PIL import Image
+
+# ==========================================
+# 🔑 极度机密：将你刚才复制的 AIza 密钥填在下方的引号里！
+# ==========================================
+GEMINI_API_KEY = "请将你刚才复制的AIza开头的密钥粘贴在这里" 
 
 # --- 双擎数据库配置 (本地+云端) ---
 DATA_FILE = "bowu_records.json"
@@ -31,16 +38,12 @@ def load_records():
                 data = res.json().get("record", {})
                 if "合盘版" not in data: data["合盘版"] = {}
                 if "财富版" not in data: data["财富版"] = {}
-                
-                # 🚀 核心升级：精准统计云端数据条数，防止连到空箱子
                 total_records = sum(len(v) for v in data.values() if isinstance(v, dict))
                 st.session_state.cloud_debug_msg = f"✅ 连接成功！当前云端金库共有 {total_records} 条档案数据。"
-                
                 with open(DATA_FILE, 'w', encoding='utf-8') as f:
                     json.dump(data, f, ensure_ascii=False, indent=2)
                 return data
             else:
-                # 🚀 核心升级：如果密钥或ID填错了，明确报错！
                 st.session_state.cloud_debug_msg = f"❌ 连接被拒 (错误码:{res.status_code})。请检查 API Key 和 Bin ID 是否填错或多复制了空格！"
         except Exception as e:
             st.session_state.cloud_debug_msg = f"⚠️ 网络连接异常，正在读取本地缓存。"
@@ -100,7 +103,7 @@ def parse_clean_json(raw_str):
         return json.loads(clean_str)
     return json.loads(raw_str)
 
-# 🚀 获取对应引擎的 JSON 格式模板 (智能提词舱核心)
+# 🚀 获取对应引擎的 JSON 格式模板
 def get_json_template(engine_name):
     if engine_name == "📊 全息能量档案":
         return """{
@@ -110,7 +113,7 @@ def get_json_template(engine_name):
   },
   "折线图": [
     {"日期": "填入日期如 5月1日", "财富": 80, "感情": 60, "事业": 70, "健康": 90}
-    // 补齐至少7天的折线图数据，数值在1-100之间
+    // 补齐至少7天的折线图数据，数值在1-100之间，切勿照抄示例数据！
   ],
   "每日详情": [
     {
@@ -178,10 +181,45 @@ def get_json_template(engine_name):
   }
 }"""
 
+# 🚀 核心升级：增加 model_name 参数，让系统可以动态切换算力
+def analyze_bazi_image(image_file, persona, background, engine_type, model_name):
+    if not GEMINI_API_KEY or GEMINI_API_KEY == "请将你刚才复制的AIza开头的密钥粘贴在这里":
+        return "❌ 错误：请先在代码第 17 行填入正确的 Gemini API Key！"
+    
+    try:
+        genai.configure(api_key=GEMINI_API_KEY)
+        # 🎯 极其重要：根据你在前端的选择，动态调用对应的模型！
+        model = genai.GenerativeModel(model_name) 
+        
+        img = Image.open(image_file)
+        json_template = get_json_template(engine_type)
+        
+        prompt = f"""你现在是《拨雾计划》的顶尖盲派命理宗师兼商业心理顾问。
+我上传了一张或多张客户的八字排盘截图，请你仔细读取图片中的天干地支、五行旺衰、大运流年等信息。
+
+【客户现实身份】：{persona}
+【补充背景】：{background}
+
+【你的任务】：
+请务必结合客户的【现实身份标签】和【排盘图片】，用极其犀利、充满现实指导意义（带点降维打击和压迫感）的风格进行断语。
+
+🚨 【防同质化极度警告】：下方 JSON 模板中出现的所有数值（如 80, 90, 30 等）仅仅是向你演示数据类型的【格式占位符】！你**必须**根据该客户真实的生辰八字和命局层次，重新推演并打出全新的分数（1-100的整数）！**绝对不允许照抄模板中的示例数值！** 请严格按照以下 JSON 格式输出报告，**只输出 JSON 代码，不要包含任何前缀后缀或多余的解释废话**：
+
+```json
+{json_template}
+```"""
+        
+        # 将图片和提示词一起发给 AI
+        response = model.generate_content([prompt, img])
+        return response.text
+        
+    except Exception as e:
+        return f"❌ 引擎请求失败，请检查网络或稍后再试。详细错误: {str(e)}"
+
+
 # 1. 全局页面配置
 st.set_page_config(page_title="拨雾计划 - 商业矩阵终端", layout="wide", page_icon="🔮", initial_sidebar_state="expanded")
 
-# 🚀 必须在页面配置后才能安全加载诊断信息
 all_records = load_records()
 
 # ====== 暴力抹除官方云的所有痕迹 ======
@@ -195,7 +233,6 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# ====== 客户端模式拦截器 ======
 query_params = st.query_params
 client_cat = query_params.get("cat")
 client_id = query_params.get("id")
@@ -247,7 +284,6 @@ else:
         pwd = st.text_input("请输入沙盒版密钥：", type="password", key="admin_pwd", placeholder="Please enter your access key...")
         
         if st.button("🔑 验证登入", use_container_width=True, type="primary"):
-            # 🎯 核心修改：测试版保留 bowu888 密码
             if pwd == "bowu888": 
                 st.session_state.authenticated = True
                 st.rerun()
@@ -276,14 +312,13 @@ else:
     """, unsafe_allow_html=True)
     
     st.sidebar.title("🧭 拨雾计划引擎矩阵")
-    # 🎯 核心修改：增加沙盒版独有橙色水印
-    st.sidebar.markdown("<div style='background-color:rgba(255,165,0,0.1); padding:8px; border-radius:5px; border-left:3px solid #FFA500; margin-bottom:15px;'><span style='color:#FFA500; font-size:12px; font-weight:bold;'>🟠 当前状态：测试沙盒版 (带提词舱)</span></div>", unsafe_allow_html=True)
+    st.sidebar.markdown("<div style='background-color:rgba(255,165,0,0.1); padding:8px; border-radius:5px; border-left:3px solid #FFA500; margin-bottom:15px;'><span style='color:#FFA500; font-size:12px; font-weight:bold;'>🟠 当前状态：Pro 旗舰全自动引擎测试中</span></div>", unsafe_allow_html=True)
     
     page_selection = st.sidebar.radio("请选择要生成的交付报告：", ["📊 全息能量档案", "👁️ 内核透视矩阵", "💞 双人宿命羁绊 (合盘版)", "💰 流年财富透视矩阵 (搞钱专属)"])
     
-    # ================= 🚀 核心保留：AI 智能提词舱 =================
+    # ================= 🚀 核心重构：全自动 AI 副驾舱 =================
     st.sidebar.markdown("---")
-    st.sidebar.markdown("### 🪄 AI 智能提词舱 (防同质化)")
+    st.sidebar.markdown("### 🤖 旗舰版 AI 视觉解析舱")
     
     persona_options = {
         "📊 全息能量档案": ["🎯 迷茫求变/寻找破局点", "💼 创业者/搞钱主力军", "🏢 职场打工人/大厂牛马", "🏡 感情至上/生活维稳期"],
@@ -292,68 +327,63 @@ else:
         "💰 流年财富透视矩阵 (搞钱专属)": ["🏢 大厂/体制内打工人 (求加薪/副业)", "💼 创业老板/投资客 (求避坑/爆发)", "🏡 待业/自由职业/宝妈 (求方向/翻身)", "💻 搞流量/做自媒体 (求风口/变现)"]
     }
     
-    with st.sidebar.expander("👇 1秒生成降维打击 Prompt", expanded=True):
-        st.caption("自动结合当前所选引擎的 JSON 格式，生成无懈可击的提示词！")
-        persona_tag = st.selectbox("1. 客户当前的现实标签：", persona_options[page_selection])
+    with st.sidebar.expander("🚀 一键上传断盘", expanded=True):
+        st.caption("直接拖入【问真八字】截图，系统将自动读取并生成最终报告！")
         
-        # 🚀 优化了输入框的提示语，专门适配“发截图”的高阶玩法
-        birth_info_tag = st.text_area("2. 补充排盘数据或背景：", placeholder="强烈建议：这里直接写“排盘见附图”，然后去 AI 那里连同提示词+问真八字截图一起发给它，准确率最高！\n\n也可补充：男，最近刚分手/想跳槽。", height=100)
+        uploaded_img = st.file_uploader("📥 拖入或点击上传排盘截图", type=["png", "jpg", "jpeg"])
+        
+        # 🚀 核心新增：在控制台增加极其帅气的“算力档位切换”！
+        model_choice = st.radio("🤖 选择 AI 引擎算力档位：", 
+            ["⚡ 极速版 (Flash - 适合快速测试/无限次)", "🧠 深度旗舰版 (Pro - 极度聪明/出单专用)"],
+            help="【Flash极速版】速度极快，随便测不限流；【Pro旗舰版】算力最强、文案最狠，但免费版限流(一分钟最多点2次)！建议接单时用 Pro！"
+        )
+        # 根据你的选择，决定底层调用哪个脑子
+        actual_model_name = "gemini-1.5-pro" if "Pro" in model_choice else "gemini-1.5-flash"
+        
+        persona_tag = st.selectbox("1. 选择客户现实标签：", persona_options[page_selection])
+        birth_info_tag = st.text_input("2. 简短备注(可选)：", placeholder="例如：最近刚离职...")
 
-        if st.button("⚡ 生成终极指令", type="primary", use_container_width=True):
-            if not birth_info_tag.strip():
-                st.error("⚠️ 请填写一点背景信息或写“排盘见截图”！")
+        # 存放 AI 自动生成的结果
+        if "auto_json_result" not in st.session_state:
+            st.session_state.auto_json_result = ""
+
+        # 按钮名字也会跟着你的选择动态改变！
+        button_label = "🔥 启动 Pro 视觉解析引擎" if "Pro" in model_choice else "⚡ 启动 Flash 极速解析"
+        
+        if st.button(button_label, type="primary", use_container_width=True):
+            if uploaded_img is None:
+                st.error("⚠️ 请先上传一张排盘截图！")
             else:
-                json_template = get_json_template(page_selection)
-                
-                # 🚀 优化了 AI 指令底层，加入了极其强硬的“防数值照抄”警告！
-                final_prompt = f"""你现在是《拨雾计划》的顶尖盲派命理宗师兼商业心理顾问。我将为你提供客户的【排盘数据】（详见我的附图或下方文字）。
-
-【客户现实身份】：{persona_tag}
-【排盘数据/补充背景】：{birth_info_tag}
-
-测算核心逻辑：请务必【结合客户当前的现实身份标签】，用极其犀利、充满现实指导意义（带点降维打击和压迫感）的风格进行断语。严禁使用脱离其身份的词汇（比如给打工人讲股权，给老板讲拿死工资）。
-
-🚨 【防同质化极度警告】：下方 JSON 模板中出现的所有数值（如 80, 90, 30 等）仅仅是向你演示数据类型的【格式占位符】！你**必须**根据该客户真实的生辰八字和命局层次，重新推演并打出全新的分数（1-100的整数）！**绝对不允许照抄模板中的示例数值！** 尤其是雷达图和折线图的起伏，必须符合其流运真实波动！
-
-请严格按照以下 JSON 格式输出报告。只输出 JSON 代码，不要包含任何多余的解释废话：
-
-```json
-{json_template}
-```"""
-                st.session_state.current_prompt = final_prompt
-
-        if "current_prompt" in st.session_state:
-            st.success("✅ 指令已生成！点击下方代码框右上角【复制图标】，去发给 ChatGPT/Claude 吧！")
-            st.code(st.session_state.current_prompt, language="markdown")
+                # 提示语也会动态变化，提醒你 Pro 需要等
+                loading_msg = "🧠 正在链接 Gemini 1.5 PRO 进行极限推演... (需15-30秒，请勿频繁点击)" if "Pro" in model_choice else "⚡ 正在链接 Gemini 1.5 Flash 极速读取中... (需5-10秒)"
+                with st.spinner(loading_msg):
+                    # 把算力名字传进去
+                    result_text = analyze_bazi_image(uploaded_img, persona_tag, birth_info_tag, page_selection, actual_model_name)
+                    
+                    if "❌" in result_text:
+                        st.error(result_text)
+                    else:
+                        st.session_state.auto_json_result = result_text
+                        st.success("✅ 解析完成！报告数据已自动填充，请在右侧查阅。")
 
     st.sidebar.markdown("---")
     
-    with st.sidebar.expander("☁️ 团队云端同步配置 (SaaS联机)", expanded=True):
+    with st.sidebar.expander("☁️ 团队云端同步配置"):
         cfg = get_cloud_cfg()
-        
-        # 🚀 在这里显示极其直观的云端诊断信息！
         if "cloud_debug_msg" in st.session_state:
-            if "✅" in st.session_state.cloud_debug_msg:
-                st.success(st.session_state.cloud_debug_msg)
-            elif "❌" in st.session_state.cloud_debug_msg:
-                st.error(st.session_state.cloud_debug_msg)
-            else:
-                st.info(st.session_state.cloud_debug_msg)
+            if "✅" in st.session_state.cloud_debug_msg: st.success(st.session_state.cloud_debug_msg)
+            elif "❌" in st.session_state.cloud_debug_msg: st.error(st.session_state.cloud_debug_msg)
+            else: st.info(st.session_state.cloud_debug_msg)
 
-        st.caption("填入密钥后，你和团队成员的数据将实时同步！")
         c_api = st.text_input("API Key", value=cfg.get("api_key", ""), type="password")
         c_bin = st.text_input("Bin ID", value=cfg.get("bin_id", ""))
         if st.button("🔗 连接云端网络", use_container_width=True):
             if c_api.strip() and c_bin.strip():
                 with open(CLOUD_CFG_FILE, 'w', encoding='utf-8') as f: json.dump({"api_key": c_api.strip(), "bin_id": c_bin.strip()}, f)
-                st.rerun() # 重新加载以触发雷达诊断
+                st.rerun() 
             else:
                 if os.path.exists(CLOUD_CFG_FILE): os.remove(CLOUD_CFG_FILE)
                 st.info("已断开云端。"); st.rerun()
-    st.sidebar.markdown("---")
-    
-    st.sidebar.markdown("### 🛠️ 商业转化工具")
-    show_teleprompter = st.sidebar.checkbox("👁️ 开启主理人销讲提词器", value=False)
     st.sidebar.markdown("---")
 
 
@@ -368,22 +398,22 @@ if page_selection == "📊 全息能量档案":
         st.sidebar.markdown("### 📂 客户历史档案库")
         fortune_history = list(all_records.get("运势版", {}).keys())
         fortune_history.reverse() 
-        selected_record = st.sidebar.selectbox("一键读取已存档案", ["-- 新建档案 / 粘贴新数据 --"] + fortune_history, key="history_fortune")
+        selected_record = st.sidebar.selectbox("一键读取已存档案", ["-- 新建档案 / 自动生成新数据 --"] + fortune_history, key="history_fortune")
         
-        if selected_record != "-- 新建档案 / 粘贴新数据 --":
+        if selected_record != "-- 新建档案 / 自动生成新数据 --":
             st.sidebar.success(f"👁️ 正在查看历史记录：\n\n**{selected_record}**")
             if st.sidebar.button("🗑️ 删除此档案", type="secondary", use_container_width=True, key="del_fortune"):
                 delete_record("运势版", selected_record); st.rerun()
             data_to_render = all_records["运势版"][selected_record]
         else:
-            st.sidebar.warning("⚠️ 粘贴数据后请点击刷新按钮！")
-            raw_json_input = st.sidebar.text_area("在此粘贴【运势】JSON 代码", value="", height=300)
-            if st.sidebar.button("🔄 确认并生成运势报告", type="primary", use_container_width=True): pass
+            # 🚀 让左侧自动生成的 JSON 填充到这个框里
+            raw_json_input = st.sidebar.text_area("⚙️ 底层数据(可手动修改)", value=st.session_state.auto_json_result, height=200)
+            if st.sidebar.button("🔄 渲染右侧报告", type="primary", use_container_width=True): pass
             if raw_json_input.strip():
                 try: data_to_render = parse_clean_json(raw_json_input)
                 except: st.error("⚠️ 解析失败，JSON不完整。")
             else:
-                st.markdown("<div class='empty-state'><h2>⏳ 引擎待机中...</h2><p>请在左侧控制台粘贴数据，或读取历史记录。</p></div>", unsafe_allow_html=True)
+                st.markdown("<div class='empty-state'><h2>⏳ 引擎待机中...</h2><p>请在左侧上传排盘截图，启动全自动解析。</p></div>", unsafe_allow_html=True)
     else:
         data_to_render = all_records.get("运势版", {}).get(client_id)
         if not data_to_render: st.error("⚠️ 链接已失效或档案不存在。")
@@ -444,7 +474,7 @@ if page_selection == "📊 全息能量档案":
                         st.warning(f"**⚠️ 高危预警**：\n\n{daily_data.get('预警', '')}"); st.error(f"**🛑 行为禁忌**：\n\n{daily_data.get('禁忌', '')}")
         
         if not is_client_mode:
-            if selected_record == "-- 新建档案 / 粘贴新数据 --":
+            if selected_record == "-- 新建档案 / 自动生成新数据 --":
                 st.markdown('<div class="save-module">### 💾 将此报告存入本地档案库', unsafe_allow_html=True)
                 col_save1, col_save2 = st.columns([3, 1])
                 with col_save1: save_name = st.text_input("客户标识（如：小红书-李女士）：", key="save_name_fortune")
@@ -452,7 +482,9 @@ if page_selection == "📊 全息能量档案":
                     st.write(""); st.write("")
                     if st.button("💾 一键入库", type="primary", use_container_width=True):
                         if save_name.strip():
-                            save_record("运势版", save_name.strip(), data); st.success("✅ 档案入库成功！页面即将刷新..."); st.rerun() 
+                            save_record("运势版", save_name.strip(), data); 
+                            st.session_state.auto_json_result = "" # 入库后清空暂存
+                            st.success("✅ 档案入库成功！页面即将刷新..."); st.rerun() 
                         else: st.error("⚠️ 请先输入客户标识！")
                 st.markdown('</div>', unsafe_allow_html=True)
             else:
@@ -461,7 +493,6 @@ if page_selection == "📊 全息能量档案":
                 st.caption("👇 点击下方代码框右上角的【复制图标】，即可一键复制并发送给客户！")
                 encoded_cat = urllib.parse.quote("运势版")
                 encoded_id = urllib.parse.quote(selected_record)
-                # 🚀 测试服专属链接
                 share_url = f"https://bowuapp-test.streamlit.app/?cat={encoded_cat}&id={encoded_id}"
                 st.code(share_url, language="text")
 
@@ -474,20 +505,20 @@ elif page_selection == "👁️ 内核透视矩阵":
         st.sidebar.markdown("### 📂 客户历史档案库")
         npd_history = list(all_records.get("人格版", {}).keys())
         npd_history.reverse()
-        selected_record_npd = st.sidebar.selectbox("一键读取已存档案", ["-- 新建档案 / 粘贴新数据 --"] + npd_history)
+        selected_record_npd = st.sidebar.selectbox("一键读取已存档案", ["-- 新建档案 / 自动生成新数据 --"] + npd_history)
         
-        if selected_record_npd != "-- 新建档案 / 粘贴新数据 --":
+        if selected_record_npd != "-- 新建档案 / 自动生成新数据 --":
             st.sidebar.success(f"👁️ 正在查看：**{selected_record_npd}**")
             if st.sidebar.button("🗑️ 删除此档案", type="secondary", use_container_width=True):
                 delete_record("人格版", selected_record_npd); st.rerun()
             data_to_render = all_records["人格版"][selected_record_npd]
         else:
-            raw_json_input = st.sidebar.text_area("在此粘贴【人格透析】JSON 代码", height=300)
-            if st.sidebar.button("🔄 确认并生成报告", type="primary", use_container_width=True): pass
+            raw_json_input = st.sidebar.text_area("⚙️ 底层数据(可手动修改)", value=st.session_state.auto_json_result, height=200)
+            if st.sidebar.button("🔄 渲染右侧报告", type="primary", use_container_width=True): pass
             if raw_json_input.strip():
                 try: data_to_render = parse_clean_json(raw_json_input)
                 except: st.error("⚠️ 解析失败。")
-            else: st.markdown("<div class='empty-state'><h2>👁️ 矩阵待机中...</h2></div>", unsafe_allow_html=True)
+            else: st.markdown("<div class='empty-state'><h2>👁️ 矩阵待机中...</h2><p>请在左侧上传排盘截图，启动全自动解析。</p></div>", unsafe_allow_html=True)
     else:
         data_to_render = all_records.get("人格版", {}).get(client_id)
         if not data_to_render: st.error("⚠️ 链接已失效。")
@@ -523,18 +554,20 @@ elif page_selection == "👁️ 内核透视矩阵":
         st.success(f"**🛡️ 相处与破局指南 (专属建议)**：\n\n{data['深度解析'].get('相处与破局指南', data['深度解析'].get('破局与防御指南', ''))}")
         
         if not is_client_mode:
-            if selected_record_npd == "-- 新建档案 / 粘贴新数据 --":
+            if selected_record_npd == "-- 新建档案 / 自动生成新数据 --":
                 st.markdown('<div class="save-module">### 💾 存入档案库', unsafe_allow_html=True)
                 save_name = st.text_input("客户标识：", key="save_name_npd")
                 if st.button("💾 一键入库", type="primary"):
-                    if save_name.strip(): save_record("人格版", save_name.strip(), data); st.rerun() 
+                    if save_name.strip(): 
+                        save_record("人格版", save_name.strip(), data)
+                        st.session_state.auto_json_result = "" 
+                        st.rerun() 
             else:
                 st.markdown("---")
                 st.markdown("### 🔗 专属交付链接 (自动隐藏后台并免密)")
                 st.caption("👇 点击下方代码框右上角的【复制图标】，即可一键复制并发送给客户！")
                 encoded_cat = urllib.parse.quote("人格版")
                 encoded_id = urllib.parse.quote(selected_record_npd)
-                # 🚀 测试服专属链接
                 share_url = f"https://bowuapp-test.streamlit.app/?cat={encoded_cat}&id={encoded_id}"
                 st.code(share_url, language="text")
 
@@ -547,20 +580,20 @@ elif page_selection == "💞 双人宿命羁绊 (合盘版)":
         st.sidebar.markdown("### 📂 客户历史档案库")
         synastry_history = list(all_records.get("合盘版", {}).keys())
         synastry_history.reverse()
-        selected_record_syn = st.sidebar.selectbox("一键读取已存档案", ["-- 新建档案 / 粘贴新数据 --"] + synastry_history)
+        selected_record_syn = st.sidebar.selectbox("一键读取已存档案", ["-- 新建档案 / 自动生成新数据 --"] + synastry_history)
         
-        if selected_record_syn != "-- 新建档案 / 粘贴新数据 --":
+        if selected_record_syn != "-- 新建档案 / 自动生成新数据 --":
             st.sidebar.success(f"👁️ 正在查看：**{selected_record_syn}**")
             if st.sidebar.button("🗑️ 删除此档案", type="secondary", use_container_width=True):
                 delete_record("合盘版", selected_record_syn); st.rerun()
             data_to_render = all_records["合盘版"][selected_record_syn]
         else:
-            raw_json_input = st.sidebar.text_area("在此粘贴【合盘】JSON 代码", height=300)
-            if st.sidebar.button("🔄 确认并生成报告", type="primary", use_container_width=True): pass
+            raw_json_input = st.sidebar.text_area("⚙️ 底层数据(可手动修改)", value=st.session_state.auto_json_result, height=200)
+            if st.sidebar.button("🔄 渲染右侧报告", type="primary", use_container_width=True): pass
             if raw_json_input.strip():
                 try: data_to_render = parse_clean_json(raw_json_input)
                 except: st.error("⚠️ 解析失败。")
-            else: st.markdown("<div class='empty-state'><h2>💞 引擎待机中...</h2></div>", unsafe_allow_html=True)
+            else: st.markdown("<div class='empty-state'><h2>💞 引擎待机中...</h2><p>请在左侧上传双人排盘截图(拼成一张图)，启动全自动解析。</p></div>", unsafe_allow_html=True)
     else:
         data_to_render = all_records.get("合盘版", {}).get(client_id)
         if not data_to_render: st.error("⚠️ 链接已失效。")
@@ -619,18 +652,20 @@ elif page_selection == "💞 双人宿命羁绊 (合盘版)":
         st.warning(f"**🛡️ 终极相处建议**：\n\n{data['深度交叉解析'].get('终极相处建议', '')}")
         
         if not is_client_mode:
-            if selected_record_syn == "-- 新建档案 / 粘贴新数据 --":
+            if selected_record_syn == "-- 新建档案 / 自动生成新数据 --":
                 st.markdown('<div class="save-module">### 💾 存入档案库', unsafe_allow_html=True)
                 save_name = st.text_input("合盘标识：", key="save_name_syn")
                 if st.button("💾 一键入库", type="primary"):
-                    if save_name.strip(): save_record("合盘版", save_name.strip(), data); st.rerun() 
+                    if save_name.strip(): 
+                        save_record("合盘版", save_name.strip(), data)
+                        st.session_state.auto_json_result = ""
+                        st.rerun() 
             else:
                 st.markdown("---")
                 st.markdown("### 🔗 专属交付链接 (自动隐藏后台并免密)")
                 st.caption("👇 点击下方代码框右上角的【复制图标】，即可一键复制并发送给客户！")
                 encoded_cat = urllib.parse.quote("合盘版")
                 encoded_id = urllib.parse.quote(selected_record_syn)
-                # 🚀 测试服专属链接
                 share_url = f"https://bowuapp-test.streamlit.app/?cat={encoded_cat}&id={encoded_id}"
                 st.code(share_url, language="text")
 
@@ -642,20 +677,20 @@ elif page_selection == "💰 流年财富透视矩阵 (搞钱专属)":
         st.sidebar.markdown("### 📂 客户历史档案库")
         wealth_history = list(all_records.get("财富版", {}).keys())
         wealth_history.reverse()
-        selected_record_wealth = st.sidebar.selectbox("一键读取已存档案", ["-- 新建档案 / 粘贴新数据 --"] + wealth_history)
+        selected_record_wealth = st.sidebar.selectbox("一键读取已存档案", ["-- 新建档案 / 自动生成新数据 --"] + wealth_history)
         
-        if selected_record_wealth != "-- 新建档案 / 粘贴新数据 --":
+        if selected_record_wealth != "-- 新建档案 / 自动生成新数据 --":
             st.sidebar.success(f"👁️ 正在查看：**{selected_record_wealth}**")
             if st.sidebar.button("🗑️ 删除此档案", type="secondary", use_container_width=True):
                 delete_record("财富版", selected_record_wealth); st.rerun()
             data_to_render = all_records["财富版"][selected_record_wealth]
         else:
-            raw_json_input = st.sidebar.text_area("在此粘贴【财富版】JSON 代码", height=300)
-            if st.sidebar.button("🔄 确认并生成报告", type="primary", use_container_width=True): pass
+            raw_json_input = st.sidebar.text_area("⚙️ 底层数据(可手动修改)", value=st.session_state.auto_json_result, height=200)
+            if st.sidebar.button("🔄 渲染右侧报告", type="primary", use_container_width=True): pass
             if raw_json_input.strip():
                 try: data_to_render = parse_clean_json(raw_json_input)
                 except: st.error("⚠️ 解析失败，请检查 JSON 格式。")
-            else: st.markdown("<div class='empty-state'><h2>💰 搞钱引擎待机中...</h2></div>", unsafe_allow_html=True)
+            else: st.markdown("<div class='empty-state'><h2>💰 搞钱引擎待机中...</h2><p>请在左侧上传排盘截图，启动全自动解析。</p></div>", unsafe_allow_html=True)
     else:
         data_to_render = all_records.get("财富版", {}).get(client_id)
         if not data_to_render: st.error("⚠️ 链接已失效。")
@@ -700,18 +735,20 @@ elif page_selection == "💰 流年财富透视矩阵 (搞钱专属)":
         st.info(f"**🔮 能量风水加持**：\n\n{data['深度搞钱建议'].get('能量风水加持', '')}")
         
         if not is_client_mode:
-            if selected_record_wealth == "-- 新建档案 / 粘贴新数据 --":
+            if selected_record_wealth == "-- 新建档案 / 自动生成新数据 --":
                 st.markdown('<div class="save-module">### 💾 存入档案库', unsafe_allow_html=True)
                 save_name = st.text_input("客户标识（如：创投群-王总）：", key="save_name_wealth")
                 if st.button("💾 一键入库", type="primary"):
-                    if save_name.strip(): save_record("财富版", save_name.strip(), data); st.rerun() 
+                    if save_name.strip(): 
+                        save_record("财富版", save_name.strip(), data)
+                        st.session_state.auto_json_result = ""
+                        st.rerun() 
             else:
                 st.markdown("---")
                 st.markdown("### 🔗 专属交付链接 (自动隐藏后台并免密)")
                 st.caption("👇 点击下方代码框右上角的【复制图标】，即可一键复制并发送给老板！")
                 encoded_cat = urllib.parse.quote("财富版")
                 encoded_id = urllib.parse.quote(selected_record_wealth)
-                # 🚀 测试服专属链接
                 share_url = f"https://bowuapp-test.streamlit.app/?cat={encoded_cat}&id={encoded_id}"
                 st.code(share_url, language="text")
 
@@ -719,7 +756,6 @@ elif page_selection == "💰 流年财富透视矩阵 (搞钱专属)":
 if is_client_mode and data_to_render:
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # 🎯 核心修改：已锁定你真实的微信 ID
     wechat_ids = ["Xiaoyizhenren367", "A-Wxrrbb"] 
     wechat_id = random.choice(wechat_ids) 
     
