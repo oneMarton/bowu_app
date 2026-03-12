@@ -211,29 +211,13 @@ def analyze_bazi_image(image_file, persona, background, engine_type, model_name)
 {json_template}
 ```"""
         
-        # 第一梯队：尝试最稳定、最精确的 002 正式版后缀
-        primary_model = "gemini-1.5-pro-002" if "pro" in model_name.lower() else "gemini-1.5-flash-002"
+        # 🎯 核心修复：根据雷达诊断结果，精准锁定你的最新 2.5 代模型！
         try:
-            model = genai.GenerativeModel(primary_model)
+            model = genai.GenerativeModel(model_name)
             response = model.generate_content([prompt, img])
             return response.text
         except Exception as e1:
-            if "404" in str(e1) or "not found" in str(e1).lower():
-                # 第二梯队：如果 002 报错，尝试无后缀基础版
-                fallback_model = "gemini-1.5-pro" if "pro" in model_name.lower() else "gemini-1.5-flash"
-                try:
-                    model2 = genai.GenerativeModel(fallback_model)
-                    response2 = model2.generate_content([prompt, img])
-                    return response2.text
-                except Exception as e2:
-                    # 第三梯队：全部失败，开启终极诊断雷达！
-                    try:
-                        valid_models = [m.name.replace('models/', '') for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-                        return f"❌ 引擎寻址失败(404)。你的密钥目前支持的真实模型有：\n\n{', '.join(valid_models)}\n\n👉 请把这段红字截图发给架构师，我们将精准锁定名字！"
-                    except Exception as api_err:
-                        return f"❌ API Key 权限异常。请检查密钥是否正确。错误信息: {str(api_err)}"
-            else:
-                return f"❌ 请求失败，非 404 错误: {str(e1)}"
+            return f"❌ 请求失败，错误信息: {str(e1)}"
                 
     except Exception as e:
         return f"❌ 引擎运行时发生系统级错误。详细信息: {str(e)}"
@@ -359,8 +343,8 @@ else:
             help="【Flash极速版】速度极快，随便测不限流；【Pro旗舰版】算力最强、文案最狠，但免费版限流(一分钟最多点2次)！建议接单时用 Pro！"
         )
         
-        # 🎯 修复：底层交由三级引擎自动匹配，不再写死 latest 后缀
-        actual_model_name = "gemini-1.5-pro" if "Pro" in model_choice else "gemini-1.5-flash"
+        # 🎯 修复：根据雷达扫描结果，升级到最新的 2.5 代模型！
+        actual_model_name = "gemini-2.5-pro" if "Pro" in model_choice else "gemini-2.5-flash"
         
         persona_tag = st.selectbox("1. 选择客户现实标签：", persona_options[page_selection])
         birth_info_tag = st.text_input("2. 简短备注(可选)：", placeholder="例如：最近刚离职...")
