@@ -295,19 +295,25 @@ else:
     with st.sidebar.expander("👇 1秒生成降维打击 Prompt", expanded=True):
         st.caption("自动结合当前所选引擎的 JSON 格式，生成无懈可击的提示词！")
         persona_tag = st.selectbox("1. 客户当前的现实标签：", persona_options[page_selection])
-        birth_info_tag = st.text_area("2. 输入生辰/八字/背景：", placeholder="例如：男，1995年8月8日早上9点。\n(如果是合盘，请在此输入两人的信息并注明男女)", height=100)
+        
+        # 🚀 优化了输入框的提示语，专门适配“发截图”的高阶玩法
+        birth_info_tag = st.text_area("2. 补充排盘数据或背景：", placeholder="强烈建议：这里直接写“排盘见附图”，然后去 AI 那里连同提示词+问真八字截图一起发给它，准确率最高！\n\n也可补充：男，最近刚分手/想跳槽。", height=100)
 
         if st.button("⚡ 生成终极指令", type="primary", use_container_width=True):
             if not birth_info_tag.strip():
-                st.error("⚠️ 请先输入客户生辰信息！")
+                st.error("⚠️ 请填写一点背景信息或写“排盘见截图”！")
             else:
                 json_template = get_json_template(page_selection)
-                final_prompt = f"""你现在是《拨雾计划》的顶尖盲派命理宗师兼商业心理顾问。我将为你提供客户信息。
+                
+                # 🚀 优化了 AI 指令底层，加入了极其强硬的“防数值照抄”警告！
+                final_prompt = f"""你现在是《拨雾计划》的顶尖盲派命理宗师兼商业心理顾问。我将为你提供客户的【排盘数据】（详见我的附图或下方文字）。
 
 【客户现实身份】：{persona_tag}
-【生辰/八字/背景】：{birth_info_tag}
+【排盘数据/补充背景】：{birth_info_tag}
 
 测算核心逻辑：请务必【结合客户当前的现实身份标签】，用极其犀利、充满现实指导意义（带点降维打击和压迫感）的风格进行断语。严禁使用脱离其身份的词汇（比如给打工人讲股权，给老板讲拿死工资）。
+
+🚨 【防同质化极度警告】：下方 JSON 模板中出现的所有数值（如 80, 90, 30 等）仅仅是向你演示数据类型的【格式占位符】！你**必须**根据该客户真实的生辰八字和命局层次，重新推演并打出全新的分数（1-100的整数）！**绝对不允许照抄模板中的示例数值！** 尤其是雷达图和折线图的起伏，必须符合其流运真实波动！
 
 请严格按照以下 JSON 格式输出报告。只输出 JSON 代码，不要包含任何多余的解释废话：
 
