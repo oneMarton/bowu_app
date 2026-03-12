@@ -14,7 +14,7 @@ from PIL import Image
 # ==========================================
 # 🔑 极度机密：将你刚才复制的 AIza 密钥填在下方的引号里！
 # ==========================================
-GEMINI_API_KEY = "请将你刚才复制的AIza开头的密钥粘贴在这里" 
+GEMINI_API_KEY = "AIzaSyBRMYOI1FaS2OPYYvxLobLL9nVInOdcyiE" 
 
 # --- 双擎数据库配置 (本地+云端) ---
 DATA_FILE = "bowu_records.json"
