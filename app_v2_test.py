@@ -12,9 +12,14 @@ import google.generativeai as genai
 from PIL import Image
 
 # ==========================================
-# 🔑 极度机密：将你刚才复制的 AIza 密钥填在下方的引号里！
+# 🔑 极度机密：API Key 安全隔离机制（防止 GitHub 泄露封号）
 # ==========================================
-GEMINI_API_KEY = "AIzaSyBRMYOI1FaS2OPYYvxLobLL9nVInOdcyiE" 
+try:
+    # 尝试从 Streamlit 官方的隐形保险箱读取密钥
+    GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
+except Exception:
+    # 如果保险箱里没找到，就设为空，触发下方报错提示
+    GEMINI_API_KEY = "" 
 
 # --- 双擎数据库配置 (本地+云端) ---
 DATA_FILE = "bowu_records.json"
@@ -183,8 +188,8 @@ def get_json_template(engine_name):
 
 # 🚀 核心升级：三级防弹备用引擎 + 终极诊断雷达
 def analyze_bazi_image(image_file, persona, background, engine_type, model_name):
-    if not GEMINI_API_KEY or GEMINI_API_KEY == "请将你刚才复制的AIza开头的密钥粘贴在这里":
-        return "❌ 错误：请先在代码第 17 行填入正确的 Gemini API Key！"
+    if not GEMINI_API_KEY:
+        return "❌ 致命错误：未检测到 API Key！请去 Streamlit 云端后台的 Advanced settings -> Secrets 中配置 `GEMINI_API_KEY = \"你的密钥\"`！"
     
     try:
         genai.configure(api_key=GEMINI_API_KEY)
