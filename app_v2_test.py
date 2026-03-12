@@ -181,15 +181,13 @@ def get_json_template(engine_name):
   }
 }"""
 
-# 🚀 核心升级：增加 model_name 参数，让系统可以动态切换算力
+# 🚀 核心升级：三级防弹备用引擎 + 终极诊断雷达
 def analyze_bazi_image(image_file, persona, background, engine_type, model_name):
     if not GEMINI_API_KEY or GEMINI_API_KEY == "请将你刚才复制的AIza开头的密钥粘贴在这里":
         return "❌ 错误：请先在代码第 17 行填入正确的 Gemini API Key！"
     
     try:
         genai.configure(api_key=GEMINI_API_KEY)
-        model = genai.GenerativeModel(model_name) 
-        
         img = Image.open(image_file)
         json_template = get_json_template(engine_type)
         
@@ -202,18 +200,38 @@ def analyze_bazi_image(image_file, persona, background, engine_type, model_name)
 【你的任务】：
 请务必结合客户的【现实身份标签】和【排盘图片】，用极其犀利、充满现实指导意义（带点降维打击和压迫感）的风格进行断语。
 
-🚨 【防同质化极度警告】：下方 JSON 模板中出现的所有数值（如 80, 90, 30 等）仅仅是向你演示数据类型的【格式占位符】！你**必须**根据该客户真实的生辰八字和命局层次，重新推演并打出全新的分数（1-100的整数）！**绝对不允许照抄模板中的示例数值！** 请严格按照以下 JSON 格式输出报告，**只输出 JSON 代码，不要包含任何前缀后缀或多余的解释废话**：
+🚨 【防同质化极度警告】：下方 JSON 模板中出现的所有数值仅仅是占位符！你**必须**根据该客户真实的生辰八字，重新推演并打出全新的分数（1-100的整数）！**绝对不允许照抄模板中的示例数值！** 请严格按照以下 JSON 格式输出报告，**只输出 JSON 代码，不要包含任何前缀后缀**：
 
 ```json
 {json_template}
 ```"""
         
-        # 将图片和提示词一起发给 AI
-        response = model.generate_content([prompt, img])
-        return response.text
-        
+        # 第一梯队：尝试最稳定、最精确的 002 正式版后缀
+        primary_model = "gemini-1.5-pro-002" if "pro" in model_name.lower() else "gemini-1.5-flash-002"
+        try:
+            model = genai.GenerativeModel(primary_model)
+            response = model.generate_content([prompt, img])
+            return response.text
+        except Exception as e1:
+            if "404" in str(e1) or "not found" in str(e1).lower():
+                # 第二梯队：如果 002 报错，尝试无后缀基础版
+                fallback_model = "gemini-1.5-pro" if "pro" in model_name.lower() else "gemini-1.5-flash"
+                try:
+                    model2 = genai.GenerativeModel(fallback_model)
+                    response2 = model2.generate_content([prompt, img])
+                    return response2.text
+                except Exception as e2:
+                    # 第三梯队：全部失败，开启终极诊断雷达！
+                    try:
+                        valid_models = [m.name.replace('models/', '') for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+                        return f"❌ 引擎寻址失败(404)。你的密钥目前支持的真实模型有：\n\n{', '.join(valid_models)}\n\n👉 请把这段红字截图发给架构师，我们将精准锁定名字！"
+                    except Exception as api_err:
+                        return f"❌ API Key 权限异常。请检查密钥是否正确。错误信息: {str(api_err)}"
+            else:
+                return f"❌ 请求失败，非 404 错误: {str(e1)}"
+                
     except Exception as e:
-        return f"❌ 引擎请求失败，请检查网络或稍后再试。详细错误: {str(e)}"
+        return f"❌ 引擎运行时发生系统级错误。详细信息: {str(e)}"
 
 
 # 1. 全局页面配置
@@ -336,8 +354,8 @@ else:
             help="【Flash极速版】速度极快，随便测不限流；【Pro旗舰版】算力最强、文案最狠，但免费版限流(一分钟最多点2次)！建议接单时用 Pro！"
         )
         
-        # 🎯 修复 404 错误：强制带上 -latest 后缀！
-        actual_model_name = "gemini-1.5-pro-latest" if "Pro" in model_choice else "gemini-1.5-flash-latest"
+        # 🎯 修复：底层交由三级引擎自动匹配，不再写死 latest 后缀
+        actual_model_name = "gemini-1.5-pro" if "Pro" in model_choice else "gemini-1.5-flash"
         
         persona_tag = st.selectbox("1. 选择客户现实标签：", persona_options[page_selection])
         birth_info_tag = st.text_input("2. 简短备注(可选)：", placeholder="例如：最近刚离职...")
