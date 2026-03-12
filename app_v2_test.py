@@ -235,7 +235,18 @@ def analyze_bazi_image(image_file, persona, background, engine_type, model_name)
             response = model.generate_content([prompt, img])
             return response.text
         except Exception as e1:
-            return f"❌ 请求失败，错误信息: {str(e1)}"
+            error_msg = str(e1)
+            # 🚀 终极防弹机制：如果 Pro 额度耗尽(429)或被锁死，底层无缝静默降级到 Flash 引擎，绝不让客户/代理商看到英文报错！
+            if "429" in error_msg and "pro" in model_name.lower():
+                try:
+                    fallback_model = model_name.replace("pro", "flash")
+                    model2 = genai.GenerativeModel(model_name=fallback_model, system_instruction=sys_instruct, generation_config=gen_config)
+                    res2 = model2.generate_content([prompt, img])
+                    return res2.text
+                except Exception as e2:
+                    return f"❌ 引擎级联崩溃。主引擎及备用引擎均无响应: {str(e2)}"
+            
+            return f"❌ 请求失败，错误信息: {error_msg}"
                 
     except Exception as e:
         return f"❌ 引擎运行时发生系统级错误。详细信息: {str(e)}"
@@ -390,19 +401,27 @@ else:
         
         uploaded_img = st.file_uploader("📥 拖入或点击上传排盘截图", type=["png", "jpg", "jpeg"])
         
-        model_choice = st.radio("🤖 选择 AI 引擎算力档位：", 
-            ["⚡ 极速版 (Flash - 适合快速测试/无限次)", "🧠 深度旗舰版 (Pro - 极度聪明/出单专用)"],
-            help="【Flash极速版】速度极快，随便测不限流；【Pro旗舰版】算力最强、文案最狠，但免费版限流(一分钟最多点2次)！建议接单时用 Pro！"
-        )
-        
-        actual_model_name = "gemini-2.5-pro" if "Pro" in model_choice else "gemini-2.5-flash"
-        
+        # 🚀 核心升级：隐藏代理商的 Pro 选项，强制其使用 Flash 极速版！
+        if st.session_state.get("role") == "master":
+            model_choice = st.radio("🤖 选择 AI 引擎算力档位：", 
+                ["⚡ 极速版 (Flash - 适合快速测试/无限次)", "🧠 深度旗舰版 (Pro - 极度聪明/出单专用)"],
+                help="【Flash极速版】速度极快，随便测不限流；【Pro旗舰版】算力最强、文案最狠，但免费版限流(一分钟最多点2次)！建议接单时用 Pro！"
+            )
+            actual_model_name = "gemini-2.5-pro" if "Pro" in model_choice else "gemini-2.5-flash"
+        else:
+            model_choice = st.radio("🤖 选择 AI 引擎算力档位：", 
+                ["⚡ 极速版 (Flash - 代理商专属/不限流)"],
+                help="当前为代理商沙盒模式，默认调用稳定不限流的极速引擎。如需开启 Pro 极限算力，请联系主理人！"
+            )
+            actual_model_name = "gemini-2.5-flash"
+            
         persona_tag = st.selectbox("1. 选择客户现实标签：", persona_options[page_selection])
         birth_info_tag = st.text_input("2. 简短备注(可选)：", placeholder="例如：最近刚离职...")
 
         if "auto_json_result" not in st.session_state:
             st.session_state.auto_json_result = ""
 
+        # 按钮文案也跟着角色变身
         button_label = "🔥 启动 Pro 视觉解析引擎" if "Pro" in model_choice else "⚡ 启动 Flash 极速解析"
         
         if st.button(button_label, type="primary", use_container_width=True):
