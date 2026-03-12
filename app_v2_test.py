@@ -188,7 +188,6 @@ def analyze_bazi_image(image_file, persona, background, engine_type, model_name)
     
     try:
         genai.configure(api_key=GEMINI_API_KEY)
-        # 🎯 极其重要：根据你在前端的选择，动态调用对应的模型！
         model = genai.GenerativeModel(model_name) 
         
         img = Image.open(image_file)
@@ -332,32 +331,28 @@ else:
         
         uploaded_img = st.file_uploader("📥 拖入或点击上传排盘截图", type=["png", "jpg", "jpeg"])
         
-        # 🚀 核心新增：在控制台增加极其帅气的“算力档位切换”！
         model_choice = st.radio("🤖 选择 AI 引擎算力档位：", 
             ["⚡ 极速版 (Flash - 适合快速测试/无限次)", "🧠 深度旗舰版 (Pro - 极度聪明/出单专用)"],
             help="【Flash极速版】速度极快，随便测不限流；【Pro旗舰版】算力最强、文案最狠，但免费版限流(一分钟最多点2次)！建议接单时用 Pro！"
         )
-        # 根据你的选择，决定底层调用哪个脑子
-        actual_model_name = "gemini-1.5-pro" if "Pro" in model_choice else "gemini-1.5-flash"
+        
+        # 🎯 修复 404 错误：强制带上 -latest 后缀！
+        actual_model_name = "gemini-1.5-pro-latest" if "Pro" in model_choice else "gemini-1.5-flash-latest"
         
         persona_tag = st.selectbox("1. 选择客户现实标签：", persona_options[page_selection])
         birth_info_tag = st.text_input("2. 简短备注(可选)：", placeholder="例如：最近刚离职...")
 
-        # 存放 AI 自动生成的结果
         if "auto_json_result" not in st.session_state:
             st.session_state.auto_json_result = ""
 
-        # 按钮名字也会跟着你的选择动态改变！
         button_label = "🔥 启动 Pro 视觉解析引擎" if "Pro" in model_choice else "⚡ 启动 Flash 极速解析"
         
         if st.button(button_label, type="primary", use_container_width=True):
             if uploaded_img is None:
                 st.error("⚠️ 请先上传一张排盘截图！")
             else:
-                # 提示语也会动态变化，提醒你 Pro 需要等
                 loading_msg = "🧠 正在链接 Gemini 1.5 PRO 进行极限推演... (需15-30秒，请勿频繁点击)" if "Pro" in model_choice else "⚡ 正在链接 Gemini 1.5 Flash 极速读取中... (需5-10秒)"
                 with st.spinner(loading_msg):
-                    # 把算力名字传进去
                     result_text = analyze_bazi_image(uploaded_img, persona_tag, birth_info_tag, page_selection, actual_model_name)
                     
                     if "❌" in result_text:
@@ -406,7 +401,6 @@ if page_selection == "📊 全息能量档案":
                 delete_record("运势版", selected_record); st.rerun()
             data_to_render = all_records["运势版"][selected_record]
         else:
-            # 🚀 让左侧自动生成的 JSON 填充到这个框里
             raw_json_input = st.sidebar.text_area("⚙️ 底层数据(可手动修改)", value=st.session_state.auto_json_result, height=200)
             if st.sidebar.button("🔄 渲染右侧报告", type="primary", use_container_width=True): pass
             if raw_json_input.strip():
@@ -483,7 +477,7 @@ if page_selection == "📊 全息能量档案":
                     if st.button("💾 一键入库", type="primary", use_container_width=True):
                         if save_name.strip():
                             save_record("运势版", save_name.strip(), data); 
-                            st.session_state.auto_json_result = "" # 入库后清空暂存
+                            st.session_state.auto_json_result = "" 
                             st.success("✅ 档案入库成功！页面即将刷新..."); st.rerun() 
                         else: st.error("⚠️ 请先输入客户标识！")
                 st.markdown('</div>', unsafe_allow_html=True)
