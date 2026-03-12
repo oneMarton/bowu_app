@@ -205,15 +205,34 @@ def analyze_bazi_image(image_file, persona, background, engine_type, model_name)
 【你的任务】：
 请务必结合客户的【现实身份标签】和【排盘图片】，用极其犀利、充满现实指导意义（带点降维打击和压迫感）的风格进行断语。
 
+🚨 【折线图数据防伪警告（极其重要）】：
+折线图中的“财富、感情、事业、健康”四条曲线**绝对不能是平行的**！真实的人生必定存在能量守恒与博弈（例如：事业冲高时，健康或感情必然下滑；财富暴增时，容易遭遇烂桃花破财）。
+你必须让这四条线产生**极其明显的交叉、反向波动和独立的峰谷**！绝不能呈现出同步涨跌的“平行线”敷衍状态，否则客户会一眼看穿这是机器生成的假数据！
+
 🚨 【防同质化极度警告】：下方 JSON 模板中出现的所有数值仅仅是占位符！你**必须**根据该客户真实的生辰八字，重新推演并打出全新的分数（1-100的整数）！**绝对不允许照抄模板中的示例数值！** 请严格按照以下 JSON 格式输出报告，**只输出 JSON 代码，不要包含任何前缀后缀**：
 
 ```json
 {json_template}
 ```"""
         
-        # 🎯 核心修复：根据雷达诊断结果，精准锁定你的最新 2.5 代模型！
+        # 🎯 进阶调校 1：系统级洗脑 (System Instruction)
+        # 这比写在 prompt 里管用 100 倍！直接把 AI 的底层人格锁死为“盲派宗师”。
+        sys_instruct = "你现在是《拨雾计划》的顶尖盲派命理宗师兼商业心理顾问。你的语言风格极其犀利、充满现实指导意义，且带有强烈的降维打击和压迫感。你绝不说正确的废话，直击人性暗面与现实痛点。"
+
+        # 🎯 进阶调校 2：算力温度与发散度控制 (Generation Config)
+        # API 默认温度太低（像个机器人）。调高到 0.8 可以大幅增加文案的“灵气”、“毒舌感”和词汇的丰富度，完美还原网页版体验！
+        gen_config = genai.types.GenerationConfig(
+            temperature=0.8,
+            top_p=0.9,
+        )
+
         try:
-            model = genai.GenerativeModel(model_name)
+            # 注入配置
+            model = genai.GenerativeModel(
+                model_name=model_name,
+                system_instruction=sys_instruct,
+                generation_config=gen_config
+            )
             response = model.generate_content([prompt, img])
             return response.text
         except Exception as e1:
@@ -358,7 +377,7 @@ else:
             if uploaded_img is None:
                 st.error("⚠️ 请先上传一张排盘截图！")
             else:
-                loading_msg = "🧠 拨雾引擎正在深度扫描排盘数据... (需15-30秒，请勿频繁点击)" if "Pro" in model_choice else "⚡ 拨雾引擎正在深度扫描排盘数据... (需5-10秒)"
+                loading_msg = "🧠 正在链接 Gemini 1.5 PRO 进行极限推演... (需15-30秒，请勿频繁点击)" if "Pro" in model_choice else "⚡ 正在链接 Gemini 1.5 Flash 极速读取中... (需5-10秒)"
                 with st.spinner(loading_msg):
                     result_text = analyze_bazi_image(uploaded_img, persona_tag, birth_info_tag, page_selection, actual_model_name)
                     
