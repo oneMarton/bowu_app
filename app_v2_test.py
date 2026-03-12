@@ -12,14 +12,18 @@ import google.generativeai as genai
 from PIL import Image
 
 # ==========================================
-# 🔑 极度机密：API Key 安全隔离机制（防止 GitHub 泄露封号）
+# 🔑 极度机密：API Key 轮询池与安全隔离机制
 # ==========================================
+API_KEYS = []
 try:
-    # 尝试从 Streamlit 官方的隐形保险箱读取密钥
-    GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
+    # 🚀 核心升级：支持读取多个密钥。
+    # 你可以在 Streamlit 的 Secrets 里写：GEMINI_API_KEYS = "密钥A,密钥B,密钥C"
+    if "GEMINI_API_KEYS" in st.secrets:
+        API_KEYS = [k.strip() for k in st.secrets["GEMINI_API_KEYS"].split(",") if k.strip()]
+    elif "GEMINI_API_KEY" in st.secrets:
+        API_KEYS = [st.secrets["GEMINI_API_KEY"].strip()]
 except Exception:
-    # 如果保险箱里没找到，就设为空，触发下方报错提示
-    GEMINI_API_KEY = "" 
+    pass
 
 # --- 双擎数据库配置 (本地+云端) ---
 DATA_FILE = "bowu_records.json"
@@ -43,6 +47,7 @@ def load_records():
                 data = res.json().get("record", {})
                 if "合盘版" not in data: data["合盘版"] = {}
                 if "财富版" not in data: data["财富版"] = {}
+                if "授权池" not in data: data["授权池"] = {} # 🚀 新增云端授权池
                 total_records = sum(len(v) for v in data.values() if isinstance(v, dict))
                 st.session_state.cloud_debug_msg = f"✅ 连接成功！当前云端金库共有 {total_records} 条档案数据。"
                 with open(DATA_FILE, 'w', encoding='utf-8') as f:
@@ -61,9 +66,21 @@ def load_records():
                 data = json.load(f)
                 if "合盘版" not in data: data["合盘版"] = {}
                 if "财富版" not in data: data["财富版"] = {} 
+                if "授权池" not in data: data["授权池"] = {} # 🚀 新增本地授权池
                 return data
-        except Exception: return {"运势版": {}, "人格版": {}, "合盘版": {}, "财富版": {}}
-    return {"运势版": {}, "人格版": {}, "合盘版": {}, "财富版": {}}
+        except Exception: return {"运势版": {}, "人格版": {}, "合盘版": {}, "财富版": {}, "授权池": {}}
+    return {"运势版": {}, "人格版": {}, "合盘版": {}, "财富版": {}, "授权池": {}}
+
+# 🚀 核心重构：通用的云端同步引擎，让代码更简洁
+def sync_to_cloud(data):
+    with open(DATA_FILE, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    cfg = get_cloud_cfg()
+    if cfg.get("api_key") and cfg.get("bin_id"):
+        try:
+            headers = {"X-Master-Key": cfg["api_key"], "Content-Type": "application/json"}
+            requests.put(f"https://api.jsonbin.io/v3/b/{cfg['bin_id']}", json=data, headers=headers, timeout=5)
+        except Exception: pass
 
 def save_record(category, name, data):
     records = load_records()
@@ -76,15 +93,7 @@ def save_record(category, name, data):
     if category not in records: records[category] = {}
     records[category][record_key] = data
     
-    with open(DATA_FILE, 'w', encoding='utf-8') as f:
-        json.dump(records, f, ensure_ascii=False, indent=2)
-        
-    cfg = get_cloud_cfg()
-    if cfg.get("api_key") and cfg.get("bin_id"):
-        try:
-            headers = {"X-Master-Key": cfg["api_key"], "Content-Type": "application/json"}
-            requests.put(f"https://api.jsonbin.io/v3/b/{cfg['bin_id']}", json=records, headers=headers, timeout=5)
-        except Exception: pass
+    sync_to_cloud(records) # 调用新引擎同步
         
     return record_key
 
@@ -92,14 +101,7 @@ def delete_record(category, record_key):
     records = load_records()
     if category in records and record_key in records[category]:
         del records[category][record_key]
-        with open(DATA_FILE, 'w', encoding='utf-8') as f:
-            json.dump(records, f, ensure_ascii=False, indent=2)
-        cfg = get_cloud_cfg()
-        if cfg.get("api_key") and cfg.get("bin_id"):
-            try:
-                headers = {"X-Master-Key": cfg["api_key"], "Content-Type": "application/json"}
-                requests.put(f"https://api.jsonbin.io/v3/b/{cfg['bin_id']}", json=records, headers=headers, timeout=5)
-            except Exception: pass
+        sync_to_cloud(records) # 调用新引擎同步
         return True
     return False
 
@@ -191,11 +193,14 @@ def get_json_template(engine_name):
 
 # 🚀 核心升级：三级防弹备用引擎 + 终极诊断雷达
 def analyze_bazi_image(image_file, persona, background, engine_type, model_name):
-    if not GEMINI_API_KEY:
-        return "❌ 致命错误：未检测到 API Key！请去 Streamlit 云端后台的 Advanced settings -> Secrets 中配置 `GEMINI_API_KEY = \"你的密钥\"`！"
+    if not API_KEYS:
+        return "❌ 致命错误：未检测到 API Key！请去 Streamlit 云端后台的 Advanced settings -> Secrets 中配置 `GEMINI_API_KEYS = \"你的密钥\"`！"
     
     try:
-        genai.configure(api_key=GEMINI_API_KEY)
+        # 🎲 核心机制：随机抽取池子里的一个 API Key 进行调用，平摊消耗！
+        current_key = random.choice(API_KEYS)
+        genai.configure(api_key=current_key)
+        
         img = Image.open(image_file)
         json_template = get_json_template(engine_type)
         
@@ -225,11 +230,9 @@ def analyze_bazi_image(image_file, persona, background, engine_type, model_name)
 ```"""
         
         # 🎯 进阶调校 1：系统级洗脑 (System Instruction)
-        # 这比写在 prompt 里管用 100 倍！直接把 AI 的底层人格锁死为“盲派宗师”。
         sys_instruct = "你现在是《拨雾计划》的顶尖盲派命理宗师兼商业心理顾问。你的语言风格极其犀利、充满现实指导意义，且带有强烈的降维打击和压迫感。你绝不说正确的废话，直击人性暗面与现实痛点。"
 
         # 🎯 进阶调校 2：算力温度与发散度控制 (Generation Config)
-        # API 默认温度太低（像个机器人）。调高到 0.8 可以大幅增加文案的“灵气”、“毒舌感”和词汇的丰富度，完美还原网页版体验！
         gen_config = genai.types.GenerationConfig(
             temperature=0.8,
             top_p=0.9,
@@ -313,16 +316,48 @@ else:
             </style>
         """, unsafe_allow_html=True)
         st.markdown("<h2 style='text-align:center; margin-bottom: 30px; color: #00E5FF; letter-spacing: 2px;'>🔒 拨雾计划引擎终端</h2>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align:center; color: #888; margin-bottom: 30px;'>Admin Access Only / 测试沙盒验证</p>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align:center; color: #888; margin-bottom: 30px;'>系统授权验证 / Access Verification</p>", unsafe_allow_html=True)
         
-        pwd = st.text_input("请输入沙盒版密钥：", type="password", key="admin_pwd", placeholder="Please enter your access key...")
+        # 🚀 引入动态数据库授权池 (彻底抛弃代码里的死密码)
+        db_records = load_records()
+        if "授权池" not in db_records: db_records["授权池"] = {}
         
-        if st.button("🔑 验证登入", use_container_width=True, type="primary"):
-            if pwd == "bowu888": 
-                st.session_state.authenticated = True
-                st.rerun()
-            else:
-                st.error("❌ 密钥错误，拒绝访问！触发防盗刷警报。")
+        with st.form(key="login_form"):
+            pwd = st.text_input("请输入系统授权密钥：", type="password", placeholder="Press Enter to login...")
+            submit_btn = st.form_submit_button("🔑 验证登入", use_container_width=True, type="primary")
+            
+            if submit_btn:
+                if pwd == "bowu888":  # 你和阿周的永久上帝密码
+                    st.session_state.authenticated = True
+                    st.session_state.role = "master" # 标记为主理人
+                    st.rerun()
+                elif pwd in db_records["授权池"]:
+                    auth_info = db_records["授权池"][pwd]
+                    
+                    if auth_info.get("type") == "date":
+                        tz_beijing = timezone(timedelta(hours=8))
+                        today = datetime.now(tz_beijing).date()
+                        expire_date = datetime.strptime(auth_info["expire_date"], "%Y-%m-%d").date()
+                        if today <= expire_date:
+                            st.session_state.authenticated = True
+                            st.session_state.role = "guest"
+                            st.rerun()
+                        else:
+                            st.error(f"❌ 账号已于 {auth_info['expire_date']} 过期！请联系主理人续费。")
+                            
+                    elif auth_info.get("type") == "count":
+                        if auth_info["remaining_uses"] > 0:
+                            # 🎯 核心逻辑：登录即扣除一次剩余次数，并实时保存回云端！
+                            db_records["授权池"][pwd]["remaining_uses"] -= 1
+                            sync_to_cloud(db_records)
+                            
+                            st.session_state.authenticated = True
+                            st.session_state.role = "guest"
+                            st.rerun()
+                        else:
+                            st.error("❌ 该授权码的使用次数（次卡）已耗尽！请联系主理人续费。")
+                else:
+                    st.error("❌ 密钥错误或不存在，拒绝访问！触发防盗刷警报。")
                 
         st.stop() 
 
@@ -415,6 +450,48 @@ else:
                 if os.path.exists(CLOUD_CFG_FILE): os.remove(CLOUD_CFG_FILE)
                 st.info("已断开云端。"); st.rerun()
     st.sidebar.markdown("---")
+
+    # 🚀 核心进化：为你打造的可视化【SaaS 发卡中心】
+    if st.session_state.get("role") == "master":
+        with st.sidebar.expander("👑 SaaS 租户授权管理中心", expanded=False):
+            st.caption("无需改代码，在这里一键生成代理商的专属密码！")
+            
+            auth_tab1, auth_tab2 = st.tabs(["➕ 生成密码", "📋 密码列表"])
+            
+            with auth_tab1:
+                new_pwd = st.text_input("自定义新密码：", placeholder="如: guest01", key="new_pwd_input")
+                pwd_memo = st.text_input("备注(发给谁的)：", placeholder="如: 上海代理老王", key="pwd_memo_input")
+                pwd_type = st.radio("授权类型：", ["📅 按日期到期", "🔢 按次消耗(次卡)"], horizontal=True)
+                
+                if "日期" in pwd_type:
+                    expire_d = st.date_input("选择到期日期：")
+                    if st.button("✅ 生成日期卡", use_container_width=True):
+                        if new_pwd.strip():
+                            all_records["授权池"][new_pwd.strip()] = {"type": "date", "expire_date": str(expire_d), "memo": pwd_memo}
+                            sync_to_cloud(all_records)
+                            st.success(f"密码 {new_pwd} 已生效！"); st.rerun()
+                        else: st.error("请填写密码！")
+                else:
+                    use_count = st.number_input("设置可用登录次数：", min_value=1, value=10, step=1)
+                    if st.button("✅ 生成次卡", use_container_width=True):
+                        if new_pwd.strip():
+                            all_records["授权池"][new_pwd.strip()] = {"type": "count", "remaining_uses": int(use_count), "memo": pwd_memo}
+                            sync_to_cloud(all_records)
+                            st.success(f"密码 {new_pwd} 已生效！"); st.rerun()
+                        else: st.error("请填写密码！")
+                        
+            with auth_tab2:
+                if not all_records.get("授权池"):
+                    st.info("当前没有分发任何密码。")
+                else:
+                    for p, info in all_records.get("授权池", {}).items():
+                        status_txt = f"📅 期限: {info.get('expire_date')}" if info.get('type') == 'date' else f"🔢 剩余: {info.get('remaining_uses')} 次"
+                        st.markdown(f"<div style='background:rgba(255,255,255,0.05); padding:10px; border-radius:5px; margin-bottom:10px; border-left:3px solid #00E5FF;'><b>密码:</b> <code style='color:#00E5FF;'>{p}</code><br><span style='font-size:12px; color:#888;'>备注: {info.get('memo', '无')} | {status_txt}</span></div>", unsafe_allow_html=True)
+                        if st.button(f"🗑️ 删除 {p}", key=f"del_pwd_{p}"):
+                            del all_records["授权池"][p]
+                            sync_to_cloud(all_records)
+                            st.rerun()
+        st.sidebar.markdown("---")
 
     # 🚀 补回这三行代码：商业转化工具（提词器开关）
     st.sidebar.markdown("### 🛠️ 商业转化工具")
