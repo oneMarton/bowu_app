@@ -30,18 +30,29 @@ def load_records():
             if res.status_code == 200:
                 data = res.json().get("record", {})
                 if "合盘版" not in data: data["合盘版"] = {}
-                if "财富版" not in data: data["财富版"] = {} # 🚀 新增财富版数据库字段
+                if "财富版" not in data: data["财富版"] = {}
+                
+                # 🚀 核心升级：精准统计云端数据条数，防止连到空箱子
+                total_records = sum(len(v) for v in data.values() if isinstance(v, dict))
+                st.session_state.cloud_debug_msg = f"✅ 连接成功！当前云端金库共有 {total_records} 条档案数据。"
+                
                 with open(DATA_FILE, 'w', encoding='utf-8') as f:
                     json.dump(data, f, ensure_ascii=False, indent=2)
                 return data
-        except Exception: pass
-    
+            else:
+                # 🚀 核心升级：如果密钥或ID填错了，明确报错！
+                st.session_state.cloud_debug_msg = f"❌ 连接被拒 (错误码:{res.status_code})。请检查 API Key 和 Bin ID 是否填错或多复制了空格！"
+        except Exception as e:
+            st.session_state.cloud_debug_msg = f"⚠️ 网络连接异常，正在读取本地缓存。"
+    else:
+        st.session_state.cloud_debug_msg = "⚪ 尚未连接云端，当前为本地断网模式。"
+        
     if os.path.exists(DATA_FILE):
         try:
             with open(DATA_FILE, 'r', encoding='utf-8') as f:
                 data = json.load(f)
                 if "合盘版" not in data: data["合盘版"] = {}
-                if "财富版" not in data: data["财富版"] = {} # 🚀 新增财富版数据库字段
+                if "财富版" not in data: data["财富版"] = {} 
                 return data
         except Exception: return {"运势版": {}, "人格版": {}, "合盘版": {}, "财富版": {}}
     return {"运势版": {}, "人格版": {}, "合盘版": {}, "财富版": {}}
@@ -89,8 +100,89 @@ def parse_clean_json(raw_str):
         return json.loads(clean_str)
     return json.loads(raw_str)
 
+# 🚀 获取对应引擎的 JSON 格式模板 (智能提词舱核心)
+def get_json_template(engine_name):
+    if engine_name == "📊 全息能量档案":
+        return """{
+  "总览": {
+    "性格底色": "生成专属文案：一针见血的命理性格定调",
+    "周期总结": "生成专属文案：近期的核心破局策略"
+  },
+  "折线图": [
+    {"日期": "填入日期如 5月1日", "财富": 80, "感情": 60, "事业": 70, "健康": 90}
+    // 补齐至少7天的折线图数据，数值在1-100之间
+  ],
+  "每日详情": [
+    {
+      "日期": "填入对应日期如 5月1日",
+      "战袍": "颜色或穿搭建议",
+      "吉位": "方位如 正北",
+      "预警": "今日可能发生的倒霉事预警",
+      "禁忌": "绝对不能做的事"
+    }
+  ]
+}"""
+    elif engine_name == "👁️ 内核透视矩阵":
+        return """{
+  "雷达图": {
+    "情绪稳定性": 80, "控制欲": 90, "共情与包容": 30, 
+    "物质现实度": 85, "精神共鸣需求": 40, "面具伪装度": 95
+  },
+  "深度解析": {
+    "暗影特质与预警": "一针见血指出其人性暗面或极端特质",
+    "内核画像与高光": "其潜意识的真实诉求与性格高光",
+    "社交面具反差": "对外装什么样，对内实际上什么样",
+    "相处与破局指南": "针对这种人，求测者该如何相处或防御"
+  }
+}"""
+    elif engine_name == "💞 双人宿命羁绊 (合盘版)":
+        return """{
+  "合盘总评": {
+    "契合度分数": 85,
+    "关系定性": "宿命正缘 / 讨债孽缘 / 露水情缘 / 灵魂伴侣 (选一并解释)",
+    "权力格局": "指明谁占主导，谁在情感吸血",
+    "宿命羁绊定调": "一句话概括这段关系的本质带点宿命感"
+  },
+  "核心风险预警": {
+    "第三方介入风险": "明确指出是否有出轨、聊骚、多角恋倾向及原因",
+    "财务纠葛": "指出两人在一起是互旺还是破财？谁消耗谁？"
+  },
+  "双人雷达图": {
+    "维度": ["情绪稳定性", "控制欲", "共情与包容", "物质与现实", "精神共鸣"],
+    "A方": [80, 50, 90, 60, 85],
+    "B方": [60, 80, 40, 90, 50]
+  },
+  "深度交叉解析": {
+    "核心吸引力": "指出两人当初为何会互相吸引",
+    "雷区引爆点": "相处中最致命的矛盾",
+    "终极相处建议": "给求测者的高阶破局法与防坑建议"
+  }
+}"""
+    elif engine_name == "💰 流年财富透视矩阵 (搞钱专属)":
+        return """{
+  "财富总览": {
+    "财富格局定调": "一针见血指出其一生的财富级别与搞钱模式",
+    "搞钱天命主场": "根据喜用神指出最旺的赛道。并给出身份建议"
+  },
+  "流年财运动态": {
+    "爆发节点": "指出今年哪几个月是进财/升职的最高峰，建议猛烈出击",
+    "破财黑洞预警": "指出今年哪几个月容易破财、被骗或背锅，必须空仓蛰伏"
+  },
+  "搞钱六维雷达图": {
+    "维度": ["偏财爆发运", "正财长线运", "守财护城河", "贵人相助运", "商业直觉力", "落地执行力"],
+    "分值": [90, 60, 40, 80, 85, 70]
+  },
+  "深度搞钱建议": {
+    "合作与避坑指南": "防范什么样的职场小人或容易被哪类合伙人坑",
+    "能量风水加持": "定制日常旺财/升职行为"
+  }
+}"""
+
 # 1. 全局页面配置
 st.set_page_config(page_title="拨雾计划 - 商业矩阵终端", layout="wide", page_icon="🔮", initial_sidebar_state="expanded")
+
+# 🚀 必须在页面配置后才能安全加载诊断信息
+all_records = load_records()
 
 # ====== 暴力抹除官方云的所有痕迹 ======
 st.markdown("""
@@ -108,8 +200,6 @@ query_params = st.query_params
 client_cat = query_params.get("cat")
 client_id = query_params.get("id")
 is_client_mode = bool(client_cat and client_id)
-
-all_records = load_records()
 
 if is_client_mode:
     # 彻底隐藏后台工具，打造极致 C 端体验
@@ -132,7 +222,6 @@ if is_client_mode:
         </style>
     """, unsafe_allow_html=True)
     
-    # 🚀 增加财富版页面路由
     page_map = {"运势版": "📊 全息能量档案", "人格版": "👁️ 内核透视矩阵", "合盘版": "💞 双人宿命羁绊 (合盘版)", "财富版": "💰 流年财富透视矩阵 (搞钱专属)"}
     page_selection = page_map.get(client_cat, "📊 全息能量档案")
     show_teleprompter = False 
@@ -153,11 +242,12 @@ else:
             </style>
         """, unsafe_allow_html=True)
         st.markdown("<h2 style='text-align:center; margin-bottom: 30px; color: #00E5FF; letter-spacing: 2px;'>🔒 拨雾计划引擎终端</h2>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align:center; color: #888; margin-bottom: 30px;'>Admin Access Only / 主理人身份验证</p>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align:center; color: #888; margin-bottom: 30px;'>Admin Access Only / 测试沙盒验证</p>", unsafe_allow_html=True)
         
-        pwd = st.text_input("请输入访问密钥：", type="password", key="admin_pwd", placeholder="Please enter your access key...")
+        pwd = st.text_input("请输入沙盒版密钥：", type="password", key="admin_pwd", placeholder="Please enter your access key...")
         
         if st.button("🔑 验证登入", use_container_width=True, type="primary"):
+            # 🎯 核心修改：测试版保留 bowu888 密码
             if pwd == "bowu888": 
                 st.session_state.authenticated = True
                 st.rerun()
@@ -186,19 +276,71 @@ else:
     """, unsafe_allow_html=True)
     
     st.sidebar.title("🧭 拨雾计划引擎矩阵")
-    # 🚀 在侧边栏增加第四台引擎的入口
+    # 🎯 核心修改：增加沙盒版独有橙色水印
+    st.sidebar.markdown("<div style='background-color:rgba(255,165,0,0.1); padding:8px; border-radius:5px; border-left:3px solid #FFA500; margin-bottom:15px;'><span style='color:#FFA500; font-size:12px; font-weight:bold;'>🟠 当前状态：测试沙盒版 (带提词舱)</span></div>", unsafe_allow_html=True)
+    
     page_selection = st.sidebar.radio("请选择要生成的交付报告：", ["📊 全息能量档案", "👁️ 内核透视矩阵", "💞 双人宿命羁绊 (合盘版)", "💰 流年财富透视矩阵 (搞钱专属)"])
+    
+    # ================= 🚀 核心保留：AI 智能提词舱 =================
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### 🪄 AI 智能提词舱 (防同质化)")
+    
+    persona_options = {
+        "📊 全息能量档案": ["🎯 迷茫求变/寻找破局点", "💼 创业者/搞钱主力军", "🏢 职场打工人/大厂牛马", "🏡 感情至上/生活维稳期"],
+        "👁️ 内核透视矩阵": ["💔 感情受挫/遭遇海王吸血", "🏢 职场被孤立/遇小人", "🤝 商业合伙/考察对方人品", "🪞 深度自我探索"],
+        "💞 双人宿命羁绊 (合盘版)": ["💍 适婚年龄看正缘/结婚", "💔 怀疑对方出轨/海王海后", "💰 看双方是否旺财/利益纠葛", "🌪️ 虐恋纠缠/断联期"],
+        "💰 流年财富透视矩阵 (搞钱专属)": ["🏢 大厂/体制内打工人 (求加薪/副业)", "💼 创业老板/投资客 (求避坑/爆发)", "🏡 待业/自由职业/宝妈 (求方向/翻身)", "💻 搞流量/做自媒体 (求风口/变现)"]
+    }
+    
+    with st.sidebar.expander("👇 1秒生成降维打击 Prompt", expanded=True):
+        st.caption("自动结合当前所选引擎的 JSON 格式，生成无懈可击的提示词！")
+        persona_tag = st.selectbox("1. 客户当前的现实标签：", persona_options[page_selection])
+        birth_info_tag = st.text_area("2. 输入生辰/八字/背景：", placeholder="例如：男，1995年8月8日早上9点。\n(如果是合盘，请在此输入两人的信息并注明男女)", height=100)
+
+        if st.button("⚡ 生成终极指令", type="primary", use_container_width=True):
+            if not birth_info_tag.strip():
+                st.error("⚠️ 请先输入客户生辰信息！")
+            else:
+                json_template = get_json_template(page_selection)
+                final_prompt = f"""你现在是《拨雾计划》的顶尖盲派命理宗师兼商业心理顾问。我将为你提供客户信息。
+
+【客户现实身份】：{persona_tag}
+【生辰/八字/背景】：{birth_info_tag}
+
+测算核心逻辑：请务必【结合客户当前的现实身份标签】，用极其犀利、充满现实指导意义（带点降维打击和压迫感）的风格进行断语。严禁使用脱离其身份的词汇（比如给打工人讲股权，给老板讲拿死工资）。
+
+请严格按照以下 JSON 格式输出报告。只输出 JSON 代码，不要包含任何多余的解释废话：
+
+```json
+{json_template}
+```"""
+                st.session_state.current_prompt = final_prompt
+
+        if "current_prompt" in st.session_state:
+            st.success("✅ 指令已生成！点击下方代码框右上角【复制图标】，去发给 ChatGPT/Claude 吧！")
+            st.code(st.session_state.current_prompt, language="markdown")
+
     st.sidebar.markdown("---")
     
-    with st.sidebar.expander("☁️ 团队云端同步配置 (SaaS联机)"):
+    with st.sidebar.expander("☁️ 团队云端同步配置 (SaaS联机)", expanded=True):
         cfg = get_cloud_cfg()
+        
+        # 🚀 在这里显示极其直观的云端诊断信息！
+        if "cloud_debug_msg" in st.session_state:
+            if "✅" in st.session_state.cloud_debug_msg:
+                st.success(st.session_state.cloud_debug_msg)
+            elif "❌" in st.session_state.cloud_debug_msg:
+                st.error(st.session_state.cloud_debug_msg)
+            else:
+                st.info(st.session_state.cloud_debug_msg)
+
         st.caption("填入密钥后，你和团队成员的数据将实时同步！")
         c_api = st.text_input("API Key", value=cfg.get("api_key", ""), type="password")
         c_bin = st.text_input("Bin ID", value=cfg.get("bin_id", ""))
         if st.button("🔗 连接云端网络", use_container_width=True):
             if c_api.strip() and c_bin.strip():
                 with open(CLOUD_CFG_FILE, 'w', encoding='utf-8') as f: json.dump({"api_key": c_api.strip(), "bin_id": c_bin.strip()}, f)
-                st.success("✅ 云端配置已保存！"); st.rerun()
+                st.rerun() # 重新加载以触发雷达诊断
             else:
                 if os.path.exists(CLOUD_CFG_FILE): os.remove(CLOUD_CFG_FILE)
                 st.info("已断开云端。"); st.rerun()
@@ -230,19 +372,16 @@ if page_selection == "📊 全息能量档案":
         else:
             st.sidebar.warning("⚠️ 粘贴数据后请点击刷新按钮！")
             raw_json_input = st.sidebar.text_area("在此粘贴【运势】JSON 代码", value="", height=300)
-            if st.sidebar.button("🔄 确认并生成运势报告", type="primary", use_container_width=True):
-                pass
+            if st.sidebar.button("🔄 确认并生成运势报告", type="primary", use_container_width=True): pass
             if raw_json_input.strip():
                 try: data_to_render = parse_clean_json(raw_json_input)
                 except: st.error("⚠️ 解析失败，JSON不完整。")
             else:
                 st.markdown("<div class='empty-state'><h2>⏳ 引擎待机中...</h2><p>请在左侧控制台粘贴数据，或读取历史记录。</p></div>", unsafe_allow_html=True)
     else:
-        # C端模式直接读取
         data_to_render = all_records.get("运势版", {}).get(client_id)
         if not data_to_render: st.error("⚠️ 链接已失效或档案不存在。")
 
-    # 统一渲染核心数据
     if data_to_render and "总览" in data_to_render:
         data = data_to_render
         if show_teleprompter and not is_client_mode:
@@ -316,6 +455,7 @@ if page_selection == "📊 全息能量档案":
                 st.caption("👇 点击下方代码框右上角的【复制图标】，即可一键复制并发送给客户！")
                 encoded_cat = urllib.parse.quote("运势版")
                 encoded_id = urllib.parse.quote(selected_record)
+                # 🚀 测试服专属链接
                 share_url = f"https://bowuapp-test.streamlit.app/?cat={encoded_cat}&id={encoded_id}"
                 st.code(share_url, language="text")
 
@@ -388,6 +528,7 @@ elif page_selection == "👁️ 内核透视矩阵":
                 st.caption("👇 点击下方代码框右上角的【复制图标】，即可一键复制并发送给客户！")
                 encoded_cat = urllib.parse.quote("人格版")
                 encoded_id = urllib.parse.quote(selected_record_npd)
+                # 🚀 测试服专属链接
                 share_url = f"https://bowuapp-test.streamlit.app/?cat={encoded_cat}&id={encoded_id}"
                 st.code(share_url, language="text")
 
@@ -483,10 +624,11 @@ elif page_selection == "💞 双人宿命羁绊 (合盘版)":
                 st.caption("👇 点击下方代码框右上角的【复制图标】，即可一键复制并发送给客户！")
                 encoded_cat = urllib.parse.quote("合盘版")
                 encoded_id = urllib.parse.quote(selected_record_syn)
+                # 🚀 测试服专属链接
                 share_url = f"https://bowuapp-test.streamlit.app/?cat={encoded_cat}&id={encoded_id}"
                 st.code(share_url, language="text")
 
-# 【财富版】🚀 核心新增：流年财富透视矩阵
+# 【财富版】
 elif page_selection == "💰 流年财富透视矩阵 (搞钱专属)":
     if not is_client_mode:
         st.title("💰 【拨雾计划】流年财富透视矩阵")
@@ -519,7 +661,6 @@ elif page_selection == "💰 流年财富透视矩阵 (搞钱专属)":
 
         if is_client_mode: st.markdown(f"<h2 style='text-align:center; color: #FFD700;'>💰 {client_id.split('(')[0].strip()} 的财富透视矩阵</h2><br>", unsafe_allow_html=True)
 
-        # 雷达图渲染：换成了极其耀眼的“暴富金”配色
         st.markdown("### 🕸️ 搞钱六维雷达图 (财富基因检测)")
         categories = list(data["搞钱六维雷达图"]["维度"])
         values = list(data["搞钱六维雷达图"]["分值"])
@@ -564,14 +705,15 @@ elif page_selection == "💰 流年财富透视矩阵 (搞钱专属)":
                 st.caption("👇 点击下方代码框右上角的【复制图标】，即可一键复制并发送给老板！")
                 encoded_cat = urllib.parse.quote("财富版")
                 encoded_id = urllib.parse.quote(selected_record_wealth)
+                # 🚀 测试服专属链接
                 share_url = f"https://bowuapp-test.streamlit.app/?cat={encoded_cat}&id={encoded_id}"
                 st.code(share_url, language="text")
 
-# ================= 底部留资与转化模块 (仅C端且有数据时可见) =================
+# ================= 底部留资与转化模块 (仅C端可见) =================
 if is_client_mode and data_to_render:
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # 🎯 核心升级：包含多人的盲盒分流引擎！
+    # 🎯 核心修改：已锁定你真实的微信 ID
     wechat_ids = ["Xiaoyizhenren367", "A-Wxrrbb"] 
     wechat_id = random.choice(wechat_ids) 
     
