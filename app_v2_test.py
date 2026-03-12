@@ -4,7 +4,7 @@ import json
 import plotly.graph_objects as go
 import os
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import streamlit.components.v1 as components
 import urllib.parse 
 import random 
@@ -67,7 +67,10 @@ def load_records():
 
 def save_record(category, name, data):
     records = load_records()
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    # 🚀 修复时区Bug：强制将云端服务器的时间加上8小时，转换为北京时间
+    tz_beijing = timezone(timedelta(hours=8))
+    timestamp = datetime.now(tz_beijing).strftime("%Y-%m-%d %H:%M:%S")
     record_key = f"{name} ({timestamp})"
     
     if category not in records: records[category] = {}
