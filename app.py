@@ -30,7 +30,7 @@ def load_records():
             if res.status_code == 200:
                 data = res.json().get("record", {})
                 if "合盘版" not in data: data["合盘版"] = {}
-                if "财富版" not in data: data["财富版"] = {} # 🚀 财富版数据库字段
+                if "财富版" not in data: data["财富版"] = {}
                 with open(DATA_FILE, 'w', encoding='utf-8') as f:
                     json.dump(data, f, ensure_ascii=False, indent=2)
                 return data
@@ -132,7 +132,6 @@ if is_client_mode:
         </style>
     """, unsafe_allow_html=True)
     
-    # 🚀 增加财富版页面路由
     page_map = {"运势版": "📊 全息能量档案", "人格版": "👁️ 内核透视矩阵", "合盘版": "💞 双人宿命羁绊 (合盘版)", "财富版": "💰 流年财富透视矩阵 (搞钱专属)"}
     page_selection = page_map.get(client_cat, "📊 全息能量档案")
     show_teleprompter = False 
@@ -153,11 +152,12 @@ else:
             </style>
         """, unsafe_allow_html=True)
         st.markdown("<h2 style='text-align:center; margin-bottom: 30px; color: #00E5FF; letter-spacing: 2px;'>🔒 拨雾计划引擎终端</h2>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align:center; color: #888; margin-bottom: 30px;'>Admin Access Only / 主理人身份验证</p>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align:center; color: #888; margin-bottom: 30px;'>Admin Access Only / 旗舰版验证</p>", unsafe_allow_html=True)
         
-        pwd = st.text_input("请输入访问密钥：", type="password", key="admin_pwd", placeholder="Please enter your access key...")
+        pwd = st.text_input("请输入旗舰版密钥：", type="password", key="admin_pwd", placeholder="Please enter your access key...")
         
         if st.button("🔑 验证登入", use_container_width=True, type="primary"):
+            # 🎯 核心修改：正式版专属密码锁定
             if pwd == "wgkmdtsg12345": 
                 st.session_state.authenticated = True
                 st.rerun()
@@ -186,7 +186,9 @@ else:
     """, unsafe_allow_html=True)
     
     st.sidebar.title("🧭 拨雾计划引擎矩阵")
-    # 🚀 在侧边栏增加第四台引擎的入口
+    # 🎯 核心修改：增加版本水印
+    st.sidebar.markdown("<div style='background-color:rgba(0,255,127,0.1); padding:8px; border-radius:5px; border-left:3px solid #00FF7F; margin-bottom:15px;'><span style='color:#00FF7F; font-size:12px; font-weight:bold;'>🟢 当前状态：正式旗舰版 v2.0</span></div>", unsafe_allow_html=True)
+    
     page_selection = st.sidebar.radio("请选择要生成的交付报告：", ["📊 全息能量档案", "👁️ 内核透视矩阵", "💞 双人宿命羁绊 (合盘版)", "💰 流年财富透视矩阵 (搞钱专属)"])
     st.sidebar.markdown("---")
     
@@ -230,8 +232,7 @@ if page_selection == "📊 全息能量档案":
         else:
             st.sidebar.warning("⚠️ 粘贴数据后请点击刷新按钮！")
             raw_json_input = st.sidebar.text_area("在此粘贴【运势】JSON 代码", value="", height=300)
-            if st.sidebar.button("🔄 确认并生成运势报告", type="primary", use_container_width=True):
-                pass
+            if st.sidebar.button("🔄 确认并生成运势报告", type="primary", use_container_width=True): pass
             if raw_json_input.strip():
                 try: data_to_render = parse_clean_json(raw_json_input)
                 except: st.error("⚠️ 解析失败，JSON不完整。")
@@ -314,7 +315,6 @@ if page_selection == "📊 全息能量档案":
                 st.caption("👇 点击下方代码框右上角的【复制图标】，即可一键复制并发送给客户！")
                 encoded_cat = urllib.parse.quote("运势版")
                 encoded_id = urllib.parse.quote(selected_record)
-                # 🚀 正式服使用 bowuplan 域名
                 share_url = f"https://bowuplan.streamlit.app/?cat={encoded_cat}&id={encoded_id}"
                 st.code(share_url, language="text")
 
@@ -387,7 +387,6 @@ elif page_selection == "👁️ 内核透视矩阵":
                 st.caption("👇 点击下方代码框右上角的【复制图标】，即可一键复制并发送给客户！")
                 encoded_cat = urllib.parse.quote("人格版")
                 encoded_id = urllib.parse.quote(selected_record_npd)
-                # 🚀 正式服使用 bowuplan 域名
                 share_url = f"https://bowuplan.streamlit.app/?cat={encoded_cat}&id={encoded_id}"
                 st.code(share_url, language="text")
 
@@ -483,11 +482,10 @@ elif page_selection == "💞 双人宿命羁绊 (合盘版)":
                 st.caption("👇 点击下方代码框右上角的【复制图标】，即可一键复制并发送给客户！")
                 encoded_cat = urllib.parse.quote("合盘版")
                 encoded_id = urllib.parse.quote(selected_record_syn)
-                # 🚀 正式服使用 bowuplan 域名
                 share_url = f"https://bowuplan.streamlit.app/?cat={encoded_cat}&id={encoded_id}"
                 st.code(share_url, language="text")
 
-# 【财富版】🚀 核心新增：流年财富透视矩阵
+# 【财富版】
 elif page_selection == "💰 流年财富透视矩阵 (搞钱专属)":
     if not is_client_mode:
         st.title("💰 【拨雾计划】流年财富透视矩阵")
@@ -564,14 +562,14 @@ elif page_selection == "💰 流年财富透视矩阵 (搞钱专属)":
                 st.caption("👇 点击下方代码框右上角的【复制图标】，即可一键复制并发送给老板！")
                 encoded_cat = urllib.parse.quote("财富版")
                 encoded_id = urllib.parse.quote(selected_record_wealth)
-                # 🚀 正式服使用 bowuplan 域名
                 share_url = f"https://bowuplan.streamlit.app/?cat={encoded_cat}&id={encoded_id}"
                 st.code(share_url, language="text")
 
-# ================= 底部留资与转化模块 (仅C端且有数据时可见) =================
+# ================= 底部留资与转化模块 (仅C端可见) =================
 if is_client_mode and data_to_render:
     st.markdown("<br>", unsafe_allow_html=True)
     
+    # 🎯 核心修改：已锁定你真实的微信 ID
     wechat_ids = ["Xiaoyizhenren367", "A-Wxrrbb"] 
     wechat_id = random.choice(wechat_ids) 
     
