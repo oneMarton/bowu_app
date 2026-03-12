@@ -196,14 +196,20 @@ def analyze_bazi_image(image_file, persona, background, engine_type, model_name)
         img = Image.open(image_file)
         json_template = get_json_template(engine_type)
         
+        # 🎯 核心新增：获取今天的真实日期，作为强制锚点拍给AI
+        today_str = datetime.now().strftime('%Y年%m月%d日')
+        
         prompt = f"""你现在是《拨雾计划》的顶尖盲派命理宗师兼商业心理顾问。
 我上传了一张或多张客户的八字排盘截图，请你仔细读取图片中的天干地支、五行旺衰、大运流年等信息。
 
+【今日现实时间】：{today_str} (请以此为基准开始推演)
 【客户现实身份】：{persona}
 【补充背景】：{background}
 
 【你的任务】：
 请务必结合客户的【现实身份标签】和【排盘图片】，用极其犀利、充满现实指导意义（带点降维打击和压迫感）的风格进行断语。
+
+🚨 【日期防伪警告（极其重要）】："折线图"和"每日详情"中的日期，**必须从今日（{today_str}）开始，连续往后推算 7 天**！绝对不允许照抄 JSON 模板里“5月1日”这种虚假示例日期！
 
 🚨 【折线图数据防伪警告（极其重要）】：
 折线图中的“财富、感情、事业、健康”四条曲线**绝对不能是平行的**！真实的人生必定存在能量守恒与博弈（例如：事业冲高时，健康或感情必然下滑；财富暴增时，容易遭遇烂桃花破财）。
@@ -377,7 +383,7 @@ else:
             if uploaded_img is None:
                 st.error("⚠️ 请先上传一张排盘截图！")
             else:
-                loading_msg = "🧠 正在链接 Gemini 1.5 PRO 进行极限推演... (需15-30秒，请勿频繁点击)" if "Pro" in model_choice else "⚡ 正在链接 Gemini 1.5 Flash 极速读取中... (需5-10秒)"
+                loading_msg = "🔮 拨雾引擎正在深度扫描排盘数据... (需15-30秒，请勿频繁点击)" if "Pro" in model_choice else "⚡ 拨雾引擎正在极速扫描排盘数据... (需5-10秒)"
                 with st.spinner(loading_msg):
                     result_text = analyze_bazi_image(uploaded_img, persona_tag, birth_info_tag, page_selection, actual_model_name)
                     
