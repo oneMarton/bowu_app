@@ -388,6 +388,10 @@ else:
                 st.info("已断开云端。"); st.rerun()
     st.sidebar.markdown("---")
 
+    # 🚀 补回这三行代码：商业转化工具（提词器开关）
+    st.sidebar.markdown("### 🛠️ 商业转化工具")
+    show_teleprompter = st.sidebar.checkbox("👁️ 开启主理人销讲提词器", value=False)
+    st.sidebar.markdown("---")
 
 # ================= 渲染核心逻辑分离 =================
 data_to_render = None
