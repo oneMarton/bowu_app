@@ -28,6 +28,13 @@ DATA_FILE = "bowu_records.json"
 CLOUD_CFG_FILE = "cloud_config.json"
 
 def get_cloud_cfg():
+    cfg = {}
+    # 🚀 史诗级修复：优先读取 Streamlit Secrets 里的高级金库密钥，彻底防止云端休眠导致代理商掉线和存不上档！
+    if "JSONBIN_API_KEY" in st.secrets and "JSONBIN_BIN_ID" in st.secrets:
+        cfg["api_key"] = st.secrets["JSONBIN_API_KEY"].strip()
+        cfg["bin_id"] = st.secrets["JSONBIN_BIN_ID"].strip()
+        return cfg
+        
     if os.path.exists(CLOUD_CFG_FILE):
         try:
             with open(CLOUD_CFG_FILE, 'r') as f:
@@ -305,7 +312,6 @@ else:
                 if pwd == "bowu888":  
                     st.session_state.authenticated = True
                     st.session_state.role = "master" 
-                    # 🚀 记录当前登录的账户名，用作上帝钢印
                     st.session_state.current_user = "master"
                     st.rerun()
                 elif pwd in db_records["授权池"]:
@@ -318,7 +324,6 @@ else:
                         if today <= expire_date:
                             st.session_state.authenticated = True
                             st.session_state.role = "guest"
-                            # 🚀 记录代理商密码，用作租户沙盒钢印
                             st.session_state.current_user = pwd
                             st.rerun()
                         else:
@@ -330,7 +335,6 @@ else:
                             sync_to_cloud(db_records)
                             st.session_state.authenticated = True
                             st.session_state.role = "guest"
-                            # 🚀 记录代理商密码，用作租户沙盒钢印
                             st.session_state.current_user = pwd
                             st.rerun()
                         else:
@@ -361,9 +365,11 @@ else:
     
     st.sidebar.title("🧭 拨雾计划引擎矩阵")
     
-    # 动态显示角色身份
+    # 动态显示角色身份与全局强制同步按钮
     if st.session_state.get("role") == "master":
         st.sidebar.markdown("<div style='background-color:rgba(255,165,0,0.1); padding:8px; border-radius:5px; border-left:3px solid #FFA500; margin-bottom:15px;'><span style='color:#FFA500; font-size:12px; font-weight:bold;'>👑 状态：主理人上帝模式</span></div>", unsafe_allow_html=True)
+        if st.sidebar.button("🔄 强制同步全网云端数据", use_container_width=True, type="primary"):
+            st.rerun()
     else:
         st.sidebar.markdown("<div style='background-color:rgba(0,229,255,0.1); padding:8px; border-radius:5px; border-left:3px solid #00E5FF; margin-bottom:15px;'><span style='color:#00E5FF; font-size:12px; font-weight:bold;'>🔒 状态：代理商沙盒模式</span></div>", unsafe_allow_html=True)
     
@@ -417,24 +423,6 @@ else:
     
     # 只有主理人才能配置云端，防止代理商搞破坏
     if st.session_state.get("role") == "master":
-        with st.sidebar.expander("☁️ 团队云端同步配置"):
-            cfg = get_cloud_cfg()
-            if "cloud_debug_msg" in st.session_state:
-                if "✅" in st.session_state.cloud_debug_msg: st.success(st.session_state.cloud_debug_msg)
-                elif "❌" in st.session_state.cloud_debug_msg: st.error(st.session_state.cloud_debug_msg)
-                else: st.info(st.session_state.cloud_debug_msg)
-
-            c_api = st.text_input("API Key", value=cfg.get("api_key", ""), type="password")
-            c_bin = st.text_input("Bin ID", value=cfg.get("bin_id", ""))
-            if st.button("🔗 连接云端网络", use_container_width=True):
-                if c_api.strip() and c_bin.strip():
-                    with open(CLOUD_CFG_FILE, 'w', encoding='utf-8') as f: json.dump({"api_key": c_api.strip(), "bin_id": c_bin.strip()}, f)
-                    st.rerun() 
-                else:
-                    if os.path.exists(CLOUD_CFG_FILE): os.remove(CLOUD_CFG_FILE)
-                    st.info("已断开云端。"); st.rerun()
-        st.sidebar.markdown("---")
-
         with st.sidebar.expander("👑 SaaS 租户授权管理中心", expanded=False):
             st.caption("无需改代码，在这里一键生成代理商的专属密码！")
             
@@ -482,6 +470,51 @@ else:
     show_teleprompter = st.sidebar.checkbox("👁️ 开启主理人销讲提词器", value=False)
     st.sidebar.markdown("---")
 
+# ================= 🚀 核心重构：上帝视角与沙盒隔离提取器 =================
+def render_history_sidebar(cat_name, state_key):
+    st.sidebar.markdown("### 📂 客户历史档案库")
+    
+    if st.session_state.get("role") == "master":
+        # 抓取所有创建者
+        creators = set()
+        for k, v in all_records.get(cat_name, {}).items():
+            if isinstance(v, dict): creators.add(v.get("_creator", "unknown"))
+        
+        # 组装下拉选项
+        filter_opts = ["🌍 全网所有数据 (上帝视角)"]
+        if "master" in creators: filter_opts.append("👑 我的专属数据")
+        for c in sorted(creators):
+            if c not in ["master", "unknown"]: filter_opts.append(f"🔒 代理商: {c}")
+        if "unknown" in creators: filter_opts.append("❓ 早期未分类数据")
+        
+        view_filter = st.sidebar.selectbox("👁️ 数据筛选器", filter_opts, key=f"filter_{state_key}")
+        
+        # 根据筛选器过滤列表
+        history_list = []
+        for k, v in all_records.get(cat_name, {}).items():
+            if isinstance(v, dict):
+                c = v.get("_creator", "unknown")
+                if view_filter.startswith("🌍"): history_list.append(k)
+                elif view_filter.startswith("👑") and c == "master": history_list.append(k)
+                elif view_filter.startswith("🔒") and c == view_filter.replace("🔒 代理商: ", ""): history_list.append(k)
+                elif view_filter.startswith("❓") and c == "unknown": history_list.append(k)
+    else:
+        st.sidebar.caption("🔒 代理沙盒：仅显示你个人的客户数据")
+        history_list = [k for k, v in all_records.get(cat_name, {}).items() if isinstance(v, dict) and v.get("_creator") == st.session_state.get("current_user")]
+        
+    history_list.reverse()
+    selected_record = st.sidebar.selectbox("一键读取已存档案", ["-- 新建档案 / 自动生成新数据 --"] + history_list, key=f"sel_{state_key}")
+    
+    data_to_render_local = None
+    if selected_record != "-- 新建档案 / 自动生成新数据 --":
+        st.sidebar.success(f"👁️ 正在查看：\n\n**{selected_record}**")
+        if st.sidebar.button("🗑️ 删除此档案", type="secondary", use_container_width=True, key=f"del_{state_key}"):
+            delete_record(cat_name, selected_record)
+            st.rerun()
+        data_to_render_local = all_records.get(cat_name, {}).get(selected_record)
+        
+    return selected_record, data_to_render_local
+
 # ================= 渲染核心逻辑分离 =================
 data_to_render = None
 
@@ -498,25 +531,9 @@ if not is_client_mode and st.session_state.get("new_link"):
 if page_selection == "📊 全息能量档案":
     if not is_client_mode:
         st.title("🔮 【拨雾计划】专属全息能量档案")
+        selected_record, data_to_render = render_history_sidebar("运势版", "fortune")
         
-        # 🚀 核心重构：上帝视角与代理商沙盒的数据隔离
-        st.sidebar.markdown("### 📂 客户历史档案库")
-        if st.session_state.get("role") == "master":
-            fortune_history = list(all_records.get("运势版", {}).keys())
-            st.sidebar.caption("👁️ 上帝视角：显示全网所有数据")
-        else:
-            fortune_history = [k for k, v in all_records.get("运势版", {}).items() if isinstance(v, dict) and v.get("_creator") == st.session_state.get("current_user")]
-            st.sidebar.caption("🔒 代理沙盒：仅显示你个人的客户数据")
-            
-        fortune_history.reverse() 
-        selected_record = st.sidebar.selectbox("一键读取已存档案", ["-- 新建档案 / 自动生成新数据 --"] + fortune_history, key="history_fortune")
-        
-        if selected_record != "-- 新建档案 / 自动生成新数据 --":
-            st.sidebar.success(f"👁️ 正在查看历史记录：\n\n**{selected_record}**")
-            if st.sidebar.button("🗑️ 删除此档案", type="secondary", use_container_width=True, key="del_fortune"):
-                delete_record("运势版", selected_record); st.rerun()
-            data_to_render = all_records["运势版"][selected_record]
-        else:
+        if selected_record == "-- 新建档案 / 自动生成新数据 --":
             raw_json_input = st.sidebar.text_area("⚙️ 底层数据(可手动修改)", value=st.session_state.auto_json_result, height=200)
             if st.sidebar.button("🔄 渲染右侧报告", type="primary", use_container_width=True): pass
             if raw_json_input.strip():
@@ -615,24 +632,9 @@ if page_selection == "📊 全息能量档案":
 elif page_selection == "👁️ 内核透视矩阵":
     if not is_client_mode:
         st.title("👁️ 【拨雾计划】目标内核深度透析矩阵")
-        
-        st.sidebar.markdown("### 📂 客户历史档案库")
-        if st.session_state.get("role") == "master":
-            npd_history = list(all_records.get("人格版", {}).keys())
-            st.sidebar.caption("👁️ 上帝视角：显示全网所有数据")
-        else:
-            npd_history = [k for k, v in all_records.get("人格版", {}).items() if isinstance(v, dict) and v.get("_creator") == st.session_state.get("current_user")]
-            st.sidebar.caption("🔒 代理沙盒：仅显示你个人的客户数据")
-            
-        npd_history.reverse()
-        selected_record_npd = st.sidebar.selectbox("一键读取已存档案", ["-- 新建档案 / 自动生成新数据 --"] + npd_history)
-        
-        if selected_record_npd != "-- 新建档案 / 自动生成新数据 --":
-            st.sidebar.success(f"👁️ 正在查看：**{selected_record_npd}**")
-            if st.sidebar.button("🗑️ 删除此档案", type="secondary", use_container_width=True):
-                delete_record("人格版", selected_record_npd); st.rerun()
-            data_to_render = all_records["人格版"][selected_record_npd]
-        else:
+        selected_record_npd, data_to_render = render_history_sidebar("人格版", "npd")
+
+        if selected_record_npd == "-- 新建档案 / 自动生成新数据 --":
             raw_json_input = st.sidebar.text_area("⚙️ 底层数据(可手动修改)", value=st.session_state.auto_json_result, height=200)
             if st.sidebar.button("🔄 渲染右侧报告", type="primary", use_container_width=True): pass
             if raw_json_input.strip():
@@ -705,24 +707,9 @@ elif page_selection == "👁️ 内核透视矩阵":
 elif page_selection == "💞 双人宿命羁绊 (合盘版)":
     if not is_client_mode:
         st.title("💞 【拨雾计划】双人宿命羁绊透析矩阵")
-        
-        st.sidebar.markdown("### 📂 客户历史档案库")
-        if st.session_state.get("role") == "master":
-            synastry_history = list(all_records.get("合盘版", {}).keys())
-            st.sidebar.caption("👁️ 上帝视角：显示全网所有数据")
-        else:
-            synastry_history = [k for k, v in all_records.get("合盘版", {}).items() if isinstance(v, dict) and v.get("_creator") == st.session_state.get("current_user")]
-            st.sidebar.caption("🔒 代理沙盒：仅显示你个人的客户数据")
-            
-        synastry_history.reverse()
-        selected_record_syn = st.sidebar.selectbox("一键读取已存档案", ["-- 新建档案 / 自动生成新数据 --"] + synastry_history)
-        
-        if selected_record_syn != "-- 新建档案 / 自动生成新数据 --":
-            st.sidebar.success(f"👁️ 正在查看：**{selected_record_syn}**")
-            if st.sidebar.button("🗑️ 删除此档案", type="secondary", use_container_width=True):
-                delete_record("合盘版", selected_record_syn); st.rerun()
-            data_to_render = all_records["合盘版"][selected_record_syn]
-        else:
+        selected_record_syn, data_to_render = render_history_sidebar("合盘版", "syn")
+
+        if selected_record_syn == "-- 新建档案 / 自动生成新数据 --":
             raw_json_input = st.sidebar.text_area("⚙️ 底层数据(可手动修改)", value=st.session_state.auto_json_result, height=200)
             if st.sidebar.button("🔄 渲染右侧报告", type="primary", use_container_width=True): pass
             if raw_json_input.strip():
@@ -818,24 +805,9 @@ elif page_selection == "💞 双人宿命羁绊 (合盘版)":
 elif page_selection == "💰 流年财富透视矩阵 (搞钱专属)":
     if not is_client_mode:
         st.title("💰 【拨雾计划】流年财富透视矩阵")
-        
-        st.sidebar.markdown("### 📂 客户历史档案库")
-        if st.session_state.get("role") == "master":
-            wealth_history = list(all_records.get("财富版", {}).keys())
-            st.sidebar.caption("👁️ 上帝视角：显示全网所有数据")
-        else:
-            wealth_history = [k for k, v in all_records.get("财富版", {}).items() if isinstance(v, dict) and v.get("_creator") == st.session_state.get("current_user")]
-            st.sidebar.caption("🔒 代理沙盒：仅显示你个人的客户数据")
-            
-        wealth_history.reverse()
-        selected_record_wealth = st.sidebar.selectbox("一键读取已存档案", ["-- 新建档案 / 自动生成新数据 --"] + wealth_history)
-        
-        if selected_record_wealth != "-- 新建档案 / 自动生成新数据 --":
-            st.sidebar.success(f"👁️ 正在查看：**{selected_record_wealth}**")
-            if st.sidebar.button("🗑️ 删除此档案", type="secondary", use_container_width=True):
-                delete_record("财富版", selected_record_wealth); st.rerun()
-            data_to_render = all_records["财富版"][selected_record_wealth]
-        else:
+        selected_record_wealth, data_to_render = render_history_sidebar("财富版", "wealth")
+
+        if selected_record_wealth == "-- 新建档案 / 自动生成新数据 --":
             raw_json_input = st.sidebar.text_area("⚙️ 底层数据(可手动修改)", value=st.session_state.auto_json_result, height=200)
             if st.sidebar.button("🔄 渲染右侧报告", type="primary", use_container_width=True): pass
             if raw_json_input.strip():
