@@ -10,6 +10,8 @@ import urllib.parse
 import random 
 import google.generativeai as genai
 from PIL import Image
+import firebase_admin
+from firebase_admin import credentials, firestore
 
 # ==========================================
 # 🔑 极度机密：API Key 轮询池与安全隔离机制
@@ -23,100 +25,77 @@ try:
 except Exception:
     pass
 
-# --- 双擎数据库配置 (本地+云端) ---
-DATA_FILE = "bowu_records.json"
-CLOUD_CFG_FILE = "cloud_config.json"
+# ==========================================
+# 🛡️ 工业级数据库初始化 (Firestore)
+# ==========================================
+def init_db():
+    try:
+        firebase_admin.get_app()
+    except ValueError:
+        if "FIREBASE_CERT" in st.secrets:
+            try:
+                cert_info = json.loads(st.secrets["FIREBASE_CERT"])
+                cred = credentials.Certificate(cert_info)
+                firebase_admin.initialize_app(cred)
+            except Exception as e:
+                st.error(f"❌ 证书解析失败，请检查 FIREBASE_CERT 格式: {str(e)}")
+                st.stop()
+        else:
+            st.error("❌ 致命错误：未检测到数据库证书 FIREBASE_CERT！请在 Secrets 中配置。")
+            st.stop()
+    return firestore.client()
 
-def get_cloud_cfg():
-    cfg = {}
-    # 🚀 史诗级修复：优先读取 Streamlit Secrets 里的高级金库密钥，彻底防止云端休眠导致代理商掉线和存不上档！
-    if "JSONBIN_API_KEY" in st.secrets and "JSONBIN_BIN_ID" in st.secrets:
-        cfg["api_key"] = st.secrets["JSONBIN_API_KEY"].strip()
-        cfg["bin_id"] = st.secrets["JSONBIN_BIN_ID"].strip()
-        return cfg
-        
-    if os.path.exists(CLOUD_CFG_FILE):
-        try:
-            with open(CLOUD_CFG_FILE, 'r') as f:
-                return json.load(f)
-        except: pass
-    return {}
+db = init_db()
+APP_ID = "bowu_saas_v1" # 数据库物理隔离标识
 
-def load_records():
-    cfg = get_cloud_cfg()
-    if cfg.get("api_key") and cfg.get("bin_id"):
-        try:
-            headers = {"X-Master-Key": cfg["api_key"]}
-            res = requests.get(f"https://api.jsonbin.io/v3/b/{cfg['bin_id']}/latest", headers=headers, timeout=5)
-            if res.status_code == 200:
-                data = res.json().get("record", {})
-                if "合盘版" not in data: data["合盘版"] = {}
-                if "财富版" not in data: data["财富版"] = {}
-                if "授权池" not in data: data["授权池"] = {} 
-                total_records = sum(len(v) for v in data.values() if isinstance(v, dict))
-                st.session_state.cloud_debug_msg = f"✅ 连接成功！当前云端金库共有 {total_records} 条档案数据。"
-                with open(DATA_FILE, 'w', encoding='utf-8') as f:
-                    json.dump(data, f, ensure_ascii=False, indent=2)
-                return data
-            else:
-                st.session_state.cloud_debug_msg = f"❌ 连接被拒 (错误码:{res.status_code})。请检查 API Key 和 Bin ID 是否填错或多复制了空格！"
-        except Exception as e:
-            st.session_state.cloud_debug_msg = f"⚠️ 网络连接异常，正在读取本地缓存。"
-    else:
-        st.session_state.cloud_debug_msg = "⚪ 尚未连接云端，当前为本地断网模式。"
-        
-    if os.path.exists(DATA_FILE):
-        try:
-            with open(DATA_FILE, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                if "合盘版" not in data: data["合盘版"] = {}
-                if "财富版" not in data: data["财富版"] = {} 
-                if "授权池" not in data: data["授权池"] = {} 
-                return data
-        except Exception: return {"运势版": {}, "人格版": {}, "合盘版": {}, "财富版": {}, "授权池": {}}
-    return {"运势版": {}, "人格版": {}, "合盘版": {}, "财富版": {}, "授权池": {}}
-
-def sync_to_cloud(data):
-    with open(DATA_FILE, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-    cfg = get_cloud_cfg()
-    if cfg.get("api_key") and cfg.get("bin_id"):
-        try:
-            headers = {"X-Master-Key": cfg["api_key"], "Content-Type": "application/json"}
-            res = requests.put(f"https://api.jsonbin.io/v3/b/{cfg['bin_id']}", json=data, headers=headers, timeout=8)
-            if res.status_code != 200:
-                # 🚀 终极军工级雷达：直接扒出官方底层的报错原因，不再盲猜！
-                try:
-                    err_detail = res.json().get("message", res.text)
-                except:
-                    err_detail = res.text
-                st.session_state.global_error = f"⚠️ 云端金库拒绝写入 (403)。官方真实原因: {err_detail} \n👉 请直接去 JSONBin 重新创建一个新的 Bin，并在 Secrets 里更新 ID！"
-        except Exception as e: 
-            st.session_state.global_error = f"⚠️ 云端金库连接超时: {str(e)}"
+# ==========================================
+# 📦 云端数据引擎 (彻底告别 100KB 限制)
+# ==========================================
+def get_db_path(collection_name):
+    return f"artifacts/{APP_ID}/public/data/{collection_name}"
 
 def save_record(category, name, data):
-    records = load_records()
     tz_beijing = timezone(timedelta(hours=8))
-    timestamp = datetime.now(tz_beijing).strftime("%Y-%m-%d %H:%M:%S")
-    record_key = f"{name} ({timestamp})"
+    now = datetime.now(tz_beijing)
+    timestamp_str = now.strftime("%Y-%m-%d %H:%M:%S")
+    doc_id = f"{name} ({timestamp_str})"
     
-    # 🚀 核心防越权：悄悄打上代理商的思想钢印 (创建者ID)
     data["_creator"] = st.session_state.get("current_user", "unknown")
-    
-    if category not in records: records[category] = {}
-    records[category][record_key] = data
-    
-    sync_to_cloud(records) 
-    return record_key
+    data["_category"] = category
+    data["_create_time"] = now
+    data["_name"] = name
 
-def delete_record(category, record_key):
-    records = load_records()
-    if category in records and record_key in records[category]:
-        del records[category][record_key]
-        sync_to_cloud(records) 
-        return True
-    return False
+    db.document(f"{get_db_path('records')}/{doc_id}").set(data)
+    return doc_id
 
+def load_all_records(category):
+    docs = db.collection(get_db_path('records')).stream()
+    results = {}
+    c_user = st.session_state.get("current_user")
+    role = st.session_state.get("role")
+
+    for doc in docs:
+        d = doc.to_dict()
+        if d.get("_category") == category:
+            # 权限隔离核心：上帝看所有，代理商看自己
+            if role == "master" or d.get("_creator") == c_user:
+                results[doc.id] = d
+    return results
+
+def delete_record(doc_id):
+    db.document(f"{get_db_path('records')}/{doc_id}").delete()
+    return True
+
+def fetch_auth_pool():
+    doc = db.document(f"{get_db_path('configs')}/auth_pool").get()
+    return doc.to_dict() if doc.exists else {}
+
+def push_auth_pool(pool):
+    db.document(f"{get_db_path('configs')}/auth_pool").set(pool)
+
+# ==========================================
+# 🧠 AI 视觉推演引擎 (带静默降级)
+# ==========================================
 def parse_clean_json(raw_str):
     start_idx = raw_str.find('{')
     end_idx = raw_str.rfind('}')
@@ -203,7 +182,7 @@ def get_json_template(engine_name):
 
 def analyze_bazi_image(image_file, persona, background, engine_type, model_name):
     if not API_KEYS:
-        return "❌ 致命错误：未检测到 API Key！请去 Streamlit 云端后台的 Advanced settings -> Secrets 中配置 `GEMINI_API_KEYS = \"你的密钥\"`！"
+        return "❌ 致命错误：未检测到 API Key！"
     
     try:
         current_key = random.choice(API_KEYS)
@@ -211,7 +190,7 @@ def analyze_bazi_image(image_file, persona, background, engine_type, model_name)
         
         img = Image.open(image_file)
         json_template = get_json_template(engine_type)
-        today_str = datetime.now().strftime('%Y年%m月%d日')
+        today_str = datetime.now(timezone(timedelta(hours=8))).strftime('%Y年%m月%d日')
         
         prompt = f"""你现在是《拨雾计划》的顶尖盲派命理宗师兼商业心理顾问。
 我上传了一张或多张客户的八字排盘截图，请你仔细读取图片中的天干地支、五行旺衰、大运流年等信息。
@@ -244,7 +223,7 @@ def analyze_bazi_image(image_file, persona, background, engine_type, model_name)
             return response.text
         except Exception as e1:
             error_msg = str(e1)
-            # 🚀 终极防弹机制：如果 Pro 额度耗尽(429)或被锁死，底层无缝静默降级到 Flash 引擎，绝不让客户/代理商看到英文报错！
+            # 🚀 终极防弹机制：如果 Pro 额度耗尽(429)或被锁死，底层无缝静默降级到 Flash 引擎！
             if "429" in error_msg and "pro" in model_name.lower():
                 try:
                     fallback_model = model_name.replace("pro", "flash")
@@ -259,10 +238,10 @@ def analyze_bazi_image(image_file, persona, background, engine_type, model_name)
     except Exception as e:
         return f"❌ 引擎运行时发生系统级错误。详细信息: {str(e)}"
 
-# 1. 全局页面配置
+# ==========================================
+# 🎨 页面配置与 UI 渲染
+# ==========================================
 st.set_page_config(page_title="拨雾计划 - 商业矩阵终端", layout="wide", page_icon="🔮", initial_sidebar_state="expanded")
-
-all_records = load_records()
 
 st.markdown("""
     <style>
@@ -320,8 +299,7 @@ else:
         st.markdown("<h2 style='text-align:center; margin-bottom: 30px; color: #00E5FF; letter-spacing: 2px;'>🔒 拨雾计划引擎终端</h2>", unsafe_allow_html=True)
         st.markdown("<p style='text-align:center; color: #888; margin-bottom: 30px;'>系统授权验证 / Access Verification</p>", unsafe_allow_html=True)
         
-        db_records = load_records()
-        if "授权池" not in db_records: db_records["授权池"] = {}
+        auth_pool = fetch_auth_pool()
         
         with st.form(key="login_form"):
             pwd = st.text_input("请输入系统授权密钥：", type="password", placeholder="Press Enter to login...")
@@ -333,25 +311,12 @@ else:
                     st.session_state.role = "master" 
                     st.session_state.current_user = "master"
                     st.rerun()
-                elif pwd in db_records["授权池"]:
-                    auth_info = db_records["授权池"][pwd]
-                    
-                    if auth_info.get("type") == "date":
-                        tz_beijing = timezone(timedelta(hours=8))
-                        today = datetime.now(tz_beijing).date()
-                        expire_date = datetime.strptime(auth_info["expire_date"], "%Y-%m-%d").date()
-                        if today <= expire_date:
-                            st.session_state.authenticated = True
-                            st.session_state.role = "guest"
-                            st.session_state.current_user = pwd
-                            st.rerun()
-                        else:
-                            st.error(f"❌ 账号已于 {auth_info['expire_date']} 过期！请联系主理人续费。")
-                            
-                    elif auth_info.get("type") == "count":
+                elif pwd in auth_pool:
+                    auth_info = auth_pool[pwd]
+                    if auth_info.get("type") == "count":
                         if auth_info["remaining_uses"] > 0:
-                            db_records["授权池"][pwd]["remaining_uses"] -= 1
-                            sync_to_cloud(db_records)
+                            auth_pool[pwd]["remaining_uses"] -= 1
+                            push_auth_pool(auth_pool) # 实时扣除云端次数
                             st.session_state.authenticated = True
                             st.session_state.role = "guest"
                             st.session_state.current_user = pwd
@@ -384,20 +349,11 @@ else:
     
     st.sidebar.title("🧭 拨雾计划引擎矩阵")
     
-    # 动态显示角色身份与全局强制同步按钮
     if st.session_state.get("role") == "master":
         st.sidebar.markdown("<div style='background-color:rgba(255,165,0,0.1); padding:8px; border-radius:5px; border-left:3px solid #FFA500; margin-bottom:15px;'><span style='color:#FFA500; font-size:12px; font-weight:bold;'>👑 状态：主理人上帝模式</span></div>", unsafe_allow_html=True)
-        if st.sidebar.button("🔄 强制同步全网云端数据", use_container_width=True, type="primary"):
-            st.rerun()
+        st.sidebar.markdown("<div style='background-color:rgba(0,255,127,0.1); padding:8px; border-radius:5px; border-left:3px solid #00FF7F; margin-bottom:15px;'><span style='color:#00FF7F; font-size:12px; font-weight:bold;'>⚡ 数据库：Firestore 工业级集群在线</span></div>", unsafe_allow_html=True)
     else:
         st.sidebar.markdown("<div style='background-color:rgba(0,229,255,0.1); padding:8px; border-radius:5px; border-left:3px solid #00E5FF; margin-bottom:15px;'><span style='color:#00E5FF; font-size:12px; font-weight:bold;'>🔒 状态：代理商沙盒模式</span></div>", unsafe_allow_html=True)
-        
-        # 🚀 给代理商的安全感：显示云端连通率，防止他们断网了还在盲干
-        agent_cfg = get_cloud_cfg()
-        if agent_cfg.get("api_key") and agent_cfg.get("bin_id"):
-            st.sidebar.markdown("<div style='background-color:rgba(0,255,127,0.1); padding:8px; border-radius:5px; border-left:3px solid #00FF7F; margin-bottom:15px;'><span style='color:#00FF7F; font-size:12px; font-weight:bold;'>☁️ 云端联机正常：可安全保存档案</span></div>", unsafe_allow_html=True)
-        else:
-            st.sidebar.markdown("<div style='background-color:rgba(255,75,75,0.1); padding:8px; border-radius:5px; border-left:3px solid #FF4B4B; margin-bottom:15px;'><span style='color:#FF4B4B; font-size:12px; font-weight:bold;'>⚠️ 云端断开：数据无法保存，请联系主理人</span></div>", unsafe_allow_html=True)
 
     page_selection = st.sidebar.radio("请选择要生成的交付报告：", ["📊 全息能量档案", "👁️ 内核透视矩阵", "💞 双人宿命羁绊 (合盘版)", "💰 流年财富透视矩阵 (搞钱专属)"])
     
@@ -416,11 +372,10 @@ else:
         
         uploaded_img = st.file_uploader("📥 拖入或点击上传排盘截图", type=["png", "jpg", "jpeg"])
         
-        # 🚀 核心升级：隐藏代理商的 Pro 选项，强制其使用 Flash 极速版！
         if st.session_state.get("role") == "master":
             model_choice = st.radio("🤖 选择 AI 引擎算力档位：", 
                 ["⚡ 极速版 (Flash - 适合快速测试/无限次)", "🧠 深度旗舰版 (Pro - 极度聪明/出单专用)"],
-                help="【Flash极速版】速度极快，随便测不限流；【Pro旗舰版】算力最强、文案最狠，但免费版限流(一分钟最多点2次)！建议接单时用 Pro！"
+                help="【Flash极速版】速度极快，随便测不限流；【Pro旗舰版】算力最强、文案最狠，如遇429系统会自动降级！"
             )
             actual_model_name = "gemini-2.5-pro" if "Pro" in model_choice else "gemini-2.5-flash"
         else:
@@ -436,7 +391,6 @@ else:
         if "auto_json_result" not in st.session_state:
             st.session_state.auto_json_result = ""
 
-        # 按钮文案也跟着角色变身
         button_label = "🔥 启动 Pro 视觉解析引擎" if "Pro" in model_choice else "⚡ 启动 Flash 极速解析"
         
         if st.button(button_label, type="primary", use_container_width=True):
@@ -455,48 +409,34 @@ else:
 
     st.sidebar.markdown("---")
     
-    # 只有主理人才能配置云端，防止代理商搞破坏
     if st.session_state.get("role") == "master":
         with st.sidebar.expander("👑 SaaS 租户授权管理中心", expanded=False):
-            st.caption("无需改代码，在这里一键生成代理商的专属密码！")
+            st.caption("基于 Firestore 实时云端同步发卡")
+            auth_pool = fetch_auth_pool()
             
             auth_tab1, auth_tab2 = st.tabs(["➕ 生成密码", "📋 密码列表"])
             
             with auth_tab1:
                 new_pwd = st.text_input("自定义新密码：", placeholder="如: guest01", key="new_pwd_input")
                 pwd_memo = st.text_input("备注(发给谁的)：", placeholder="如: 上海代理老王", key="pwd_memo_input")
-                pwd_type = st.radio("授权类型：", ["📅 按日期到期", "🔢 按次消耗(次卡)"], horizontal=True)
-                
-                if "日期" in pwd_type:
-                    expire_d = st.date_input("选择到期日期：")
-                    if st.button("✅ 生成日期卡", use_container_width=True):
-                        if new_pwd.strip():
-                            all_records["授权池"][new_pwd.strip()] = {"type": "date", "expire_date": str(expire_d), "memo": pwd_memo}
-                            sync_to_cloud(all_records)
-                            st.success(f"密码 {new_pwd} 已生效！"); st.rerun()
-                        else: st.error("请填写密码！")
-                else:
-                    use_count = st.number_input("设置可用登录次数：", min_value=1, value=10, step=1)
-                    if st.button("✅ 生成次卡", use_container_width=True):
-                        if new_pwd.strip():
-                            all_records["授权池"][new_pwd.strip()] = {"type": "count", "remaining_uses": int(use_count), "memo": pwd_memo}
-                            sync_to_cloud(all_records)
-                            st.success(f"密码 {new_pwd} 已生效！"); st.rerun()
-                        else: st.error("请填写密码！")
+                use_count = st.number_input("设置可用登录次数：", min_value=1, value=10, step=1)
+                if st.button("✅ 生成次卡", use_container_width=True):
+                    if new_pwd.strip():
+                        auth_pool[new_pwd.strip()] = {"type": "count", "remaining_uses": int(use_count), "memo": pwd_memo}
+                        push_auth_pool(auth_pool)
+                        st.success(f"密码 {new_pwd} 已生效！"); st.rerun()
+                    else: st.error("请填写密码！")
                         
             with auth_tab2:
-                if st.button("🔄 刷新最新使用情况", use_container_width=True):
-                    st.rerun()
-                    
-                if not all_records.get("授权池"):
+                if st.button("🔄 刷新最新使用情况", use_container_width=True): st.rerun()
+                if not auth_pool:
                     st.info("当前没有分发任何密码。")
                 else:
-                    for p, info in all_records.get("授权池", {}).items():
-                        status_txt = f"📅 期限: {info.get('expire_date')}" if info.get('type') == 'date' else f"🔢 剩余: {info.get('remaining_uses')} 次"
-                        st.markdown(f"<div style='background:rgba(255,255,255,0.05); padding:10px; border-radius:5px; margin-bottom:10px; border-left:3px solid #00E5FF;'><b>密码:</b> <code style='color:#00E5FF;'>{p}</code><br><span style='font-size:12px; color:#888;'>备注: {info.get('memo', '无')} | {status_txt}</span></div>", unsafe_allow_html=True)
+                    for p, info in auth_pool.items():
+                        st.markdown(f"<div style='background:rgba(255,255,255,0.05); padding:10px; border-radius:5px; margin-bottom:10px; border-left:3px solid #00E5FF;'><b>密码:</b> <code style='color:#00E5FF;'>{p}</code><br><span style='font-size:12px; color:#888;'>备注: {info.get('memo', '无')} | 🔢 剩余: {info.get('remaining_uses')} 次</span></div>", unsafe_allow_html=True)
                         if st.button(f"🗑️ 删除 {p}", key=f"del_pwd_{p}"):
-                            del all_records["授权池"][p]
-                            sync_to_cloud(all_records)
+                            del auth_pool[p]
+                            push_auth_pool(auth_pool)
                             st.rerun()
         st.sidebar.markdown("---")
 
@@ -508,13 +448,14 @@ else:
 def render_history_sidebar(cat_name, state_key):
     st.sidebar.markdown("### 📂 客户历史档案库")
     
+    # 每次都从 Firestore 实时拉取该分类数据
+    history_data = load_all_records(cat_name)
+    
     if st.session_state.get("role") == "master":
-        # 抓取所有创建者
         creators = set()
-        for k, v in all_records.get(cat_name, {}).items():
-            if isinstance(v, dict): creators.add(v.get("_creator", "unknown"))
+        for v in history_data.values():
+            creators.add(v.get("_creator", "unknown"))
         
-        # 组装下拉选项
         filter_opts = ["🌍 全网所有数据 (上帝视角)"]
         if "master" in creators: filter_opts.append("👑 我的专属数据")
         for c in sorted(creators):
@@ -523,41 +464,32 @@ def render_history_sidebar(cat_name, state_key):
         
         view_filter = st.sidebar.selectbox("👁️ 数据筛选器", filter_opts, key=f"filter_{state_key}")
         
-        # 根据筛选器过滤列表
         history_list = []
-        for k, v in all_records.get(cat_name, {}).items():
-            if isinstance(v, dict):
-                c = v.get("_creator", "unknown")
-                if view_filter.startswith("🌍"): history_list.append(k)
-                elif view_filter.startswith("👑") and c == "master": history_list.append(k)
-                elif view_filter.startswith("🔒") and c == view_filter.replace("🔒 代理商: ", ""): history_list.append(k)
-                elif view_filter.startswith("❓") and c == "unknown": history_list.append(k)
+        for k, v in history_data.items():
+            c = v.get("_creator", "unknown")
+            if view_filter.startswith("🌍"): history_list.append(k)
+            elif view_filter.startswith("👑") and c == "master": history_list.append(k)
+            elif view_filter.startswith("🔒") and c == view_filter.replace("🔒 代理商: ", ""): history_list.append(k)
+            elif view_filter.startswith("❓") and c == "unknown": history_list.append(k)
     else:
         st.sidebar.caption("🔒 代理沙盒：仅显示你个人的客户数据")
-        history_list = [k for k, v in all_records.get(cat_name, {}).items() if isinstance(v, dict) and v.get("_creator") == st.session_state.get("current_user")]
+        history_list = list(history_data.keys())
         
-    history_list.reverse()
+    history_list = sorted(history_list, reverse=True)
     selected_record = st.sidebar.selectbox("一键读取已存档案", ["-- 新建档案 / 自动生成新数据 --"] + history_list, key=f"sel_{state_key}")
     
     data_to_render_local = None
     if selected_record != "-- 新建档案 / 自动生成新数据 --":
         st.sidebar.success(f"👁️ 正在查看：\n\n**{selected_record}**")
         if st.sidebar.button("🗑️ 删除此档案", type="secondary", use_container_width=True, key=f"del_{state_key}"):
-            delete_record(cat_name, selected_record)
+            delete_record(selected_record)
             st.rerun()
-        data_to_render_local = all_records.get(cat_name, {}).get(selected_record)
+        data_to_render_local = history_data.get(selected_record)
         
     return selected_record, data_to_render_local
 
 # ================= 渲染核心逻辑分离 =================
 data_to_render = None
-
-# 🚀 监听并拦截全局云端报错，防止代理商白干活
-if st.session_state.get("global_error"):
-    st.error(st.session_state.global_error)
-    if st.button("我知道了，清除警报"):
-        st.session_state.global_error = ""
-        st.rerun()
 
 if not is_client_mode and st.session_state.get("new_link"):
     st.success(f"🎉 **{st.session_state.get('new_name', '')}** 的档案已成功入库！\n\n👇 **请立刻复制下方链接发送给客户：**")
@@ -583,7 +515,9 @@ if page_selection == "📊 全息能量档案":
             else:
                 st.markdown("<div class='empty-state'><h2>⏳ 引擎待机中...</h2><p>请在左侧上传排盘截图，启动全自动解析。</p></div>", unsafe_allow_html=True)
     else:
-        data_to_render = all_records.get("运势版", {}).get(client_id)
+        # C端直接从 Firestore 查该 ID
+        doc = db.document(f"{get_db_path('records')}/{client_id}").get()
+        data_to_render = doc.to_dict() if doc.exists else None
         if not data_to_render: st.error("⚠️ 链接已失效或档案不存在。")
 
     if data_to_render and "总览" in data_to_render:
@@ -653,9 +587,10 @@ if page_selection == "📊 全息能量档案":
                             record_key = save_record("运势版", save_name.strip(), data)
                             st.session_state.auto_json_result = "" 
                             
+                            base_url = "https://bowuapp-test.streamlit.app/"
                             encoded_cat = urllib.parse.quote("运势版")
                             encoded_id = urllib.parse.quote(record_key)
-                            st.session_state.new_link = f"https://bowuapp-test.streamlit.app/?cat={encoded_cat}&id={encoded_id}"
+                            st.session_state.new_link = f"{base_url}?cat={encoded_cat}&id={encoded_id}"
                             st.session_state.new_name = save_name.strip()
                             st.rerun() 
                         else: st.error("⚠️ 请先输入客户标识！")
@@ -664,9 +599,10 @@ if page_selection == "📊 全息能量档案":
                 st.markdown("---")
                 st.markdown("### 🔗 专属交付链接 (自动隐藏后台并免密)")
                 st.caption("👇 点击下方代码框右上角的【复制图标】，即可一键复制并发送给客户！")
+                base_url = "https://bowuapp-test.streamlit.app/"
                 encoded_cat = urllib.parse.quote("运势版")
                 encoded_id = urllib.parse.quote(selected_record)
-                share_url = f"https://bowuapp-test.streamlit.app/?cat={encoded_cat}&id={encoded_id}"
+                share_url = f"{base_url}?cat={encoded_cat}&id={encoded_id}"
                 st.code(share_url, language="text")
 
 # 【人格版】
@@ -683,7 +619,8 @@ elif page_selection == "👁️ 内核透视矩阵":
                 except: st.error("⚠️ 解析失败。")
             else: st.markdown("<div class='empty-state'><h2>👁️ 矩阵待机中...</h2><p>请在左侧上传排盘截图，启动全自动解析。</p></div>", unsafe_allow_html=True)
     else:
-        data_to_render = all_records.get("人格版", {}).get(client_id)
+        doc = db.document(f"{get_db_path('records')}/{client_id}").get()
+        data_to_render = doc.to_dict() if doc.exists else None
         if not data_to_render: st.error("⚠️ 链接已失效。")
 
     if data_to_render and "雷达图" in data_to_render:
@@ -728,9 +665,10 @@ elif page_selection == "👁️ 内核透视矩阵":
                             record_key = save_record("人格版", save_name.strip(), data)
                             st.session_state.auto_json_result = "" 
                             
+                            base_url = "https://bowuapp-test.streamlit.app/"
                             encoded_cat = urllib.parse.quote("人格版")
                             encoded_id = urllib.parse.quote(record_key)
-                            st.session_state.new_link = f"https://bowuapp-test.streamlit.app/?cat={encoded_cat}&id={encoded_id}"
+                            st.session_state.new_link = f"{base_url}?cat={encoded_cat}&id={encoded_id}"
                             st.session_state.new_name = save_name.strip()
                             st.rerun() 
                         else: st.error("⚠️ 请先输入客户标识！")
@@ -739,9 +677,10 @@ elif page_selection == "👁️ 内核透视矩阵":
                 st.markdown("---")
                 st.markdown("### 🔗 专属交付链接 (自动隐藏后台并免密)")
                 st.caption("👇 点击下方代码框右上角的【复制图标】，即可一键复制并发送给客户！")
+                base_url = "https://bowuapp-test.streamlit.app/"
                 encoded_cat = urllib.parse.quote("人格版")
                 encoded_id = urllib.parse.quote(selected_record_npd)
-                share_url = f"https://bowuapp-test.streamlit.app/?cat={encoded_cat}&id={encoded_id}"
+                share_url = f"{base_url}?cat={encoded_cat}&id={encoded_id}"
                 st.code(share_url, language="text")
 
 # 【合盘版】
@@ -758,7 +697,8 @@ elif page_selection == "💞 双人宿命羁绊 (合盘版)":
                 except: st.error("⚠️ 解析失败。")
             else: st.markdown("<div class='empty-state'><h2>💞 引擎待机中...</h2><p>请在左侧上传双人排盘截图(拼成一张图)，启动全自动解析。</p></div>", unsafe_allow_html=True)
     else:
-        data_to_render = all_records.get("合盘版", {}).get(client_id)
+        doc = db.document(f"{get_db_path('records')}/{client_id}").get()
+        data_to_render = doc.to_dict() if doc.exists else None
         if not data_to_render: st.error("⚠️ 链接已失效。")
 
     if data_to_render and "双人雷达图" in data_to_render:
@@ -826,9 +766,10 @@ elif page_selection == "💞 双人宿命羁绊 (合盘版)":
                             record_key = save_record("合盘版", save_name.strip(), data)
                             st.session_state.auto_json_result = ""
                             
+                            base_url = "https://bowuapp-test.streamlit.app/"
                             encoded_cat = urllib.parse.quote("合盘版")
                             encoded_id = urllib.parse.quote(record_key)
-                            st.session_state.new_link = f"https://bowuapp-test.streamlit.app/?cat={encoded_cat}&id={encoded_id}"
+                            st.session_state.new_link = f"{base_url}?cat={encoded_cat}&id={encoded_id}"
                             st.session_state.new_name = save_name.strip()
                             st.rerun() 
                         else: st.error("⚠️ 请先输入合盘标识！")
@@ -837,9 +778,10 @@ elif page_selection == "💞 双人宿命羁绊 (合盘版)":
                 st.markdown("---")
                 st.markdown("### 🔗 专属交付链接 (自动隐藏后台并免密)")
                 st.caption("👇 点击下方代码框右上角的【复制图标】，即可一键复制并发送给客户！")
+                base_url = "https://bowuapp-test.streamlit.app/"
                 encoded_cat = urllib.parse.quote("合盘版")
                 encoded_id = urllib.parse.quote(selected_record_syn)
-                share_url = f"https://bowuapp-test.streamlit.app/?cat={encoded_cat}&id={encoded_id}"
+                share_url = f"{base_url}?cat={encoded_cat}&id={encoded_id}"
                 st.code(share_url, language="text")
 
 # 【财富版】
@@ -856,7 +798,8 @@ elif page_selection == "💰 流年财富透视矩阵 (搞钱专属)":
                 except: st.error("⚠️ 解析失败，请检查 JSON 格式。")
             else: st.markdown("<div class='empty-state'><h2>💰 搞钱引擎待机中...</h2><p>请在左侧上传排盘截图，启动全自动解析。</p></div>", unsafe_allow_html=True)
     else:
-        data_to_render = all_records.get("财富版", {}).get(client_id)
+        doc = db.document(f"{get_db_path('records')}/{client_id}").get()
+        data_to_render = doc.to_dict() if doc.exists else None
         if not data_to_render: st.error("⚠️ 链接已失效。")
 
     if data_to_render and "搞钱六维雷达图" in data_to_render:
@@ -910,9 +853,10 @@ elif page_selection == "💰 流年财富透视矩阵 (搞钱专属)":
                             record_key = save_record("财富版", save_name.strip(), data)
                             st.session_state.auto_json_result = ""
                             
+                            base_url = "https://bowuapp-test.streamlit.app/"
                             encoded_cat = urllib.parse.quote("财富版")
                             encoded_id = urllib.parse.quote(record_key)
-                            st.session_state.new_link = f"https://bowuapp-test.streamlit.app/?cat={encoded_cat}&id={encoded_id}"
+                            st.session_state.new_link = f"{base_url}?cat={encoded_cat}&id={encoded_id}"
                             st.session_state.new_name = save_name.strip()
                             st.rerun() 
                         else: st.error("⚠️ 请先输入客户标识！")
@@ -921,9 +865,10 @@ elif page_selection == "💰 流年财富透视矩阵 (搞钱专属)":
                 st.markdown("---")
                 st.markdown("### 🔗 专属交付链接 (自动隐藏后台并免密)")
                 st.caption("👇 点击下方代码框右上角的【复制图标】，即可一键复制并发送给老板！")
+                base_url = "https://bowuapp-test.streamlit.app/"
                 encoded_cat = urllib.parse.quote("财富版")
                 encoded_id = urllib.parse.quote(selected_record_wealth)
-                share_url = f"https://bowuapp-test.streamlit.app/?cat={encoded_cat}&id={encoded_id}"
+                share_url = f"{base_url}?cat={encoded_cat}&id={encoded_id}"
                 st.code(share_url, language="text")
 
 # ================= 底部留资与转化模块 (仅C端可见) =================
