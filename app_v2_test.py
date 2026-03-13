@@ -243,6 +243,10 @@ def analyze_bazi_image(image_file, persona, background, engine_type, model_name)
 # ==========================================
 st.set_page_config(page_title="拨雾计划 - 商业矩阵终端", layout="wide", page_icon="🔮", initial_sidebar_state="expanded")
 
+# 初始化上传器组件的 Key (用于一键清空)
+if "uploader_key" not in st.session_state:
+    st.session_state.uploader_key = 0
+
 st.markdown("""
     <style>
     #MainMenu { display: none !important; }
@@ -386,9 +390,17 @@ else:
     }
     
     with st.sidebar.expander("🚀 一键上传断盘", expanded=True):
-        st.caption("直接拖入【问真八字】截图，系统将自动读取并生成最终报告！")
-        
-        uploaded_img = st.file_uploader("📥 拖入或点击上传排盘截图", type=["png", "jpg", "jpeg"])
+        col_cap, col_reset = st.columns([2, 1])
+        with col_cap:
+            st.caption("直接拖入【问真八字】截图...")
+        with col_reset:
+            if st.button("🔄 清空/重置", help="测完一个客户后，点击一键清空图片和数据", use_container_width=True):
+                st.session_state.uploader_key += 1
+                st.session_state.auto_json_result = ""
+                st.rerun()
+
+        # 使用动态 key，实现一键清空文件上传器
+        uploaded_img = st.file_uploader("📥 拖入或点击上传排盘截图", type=["png", "jpg", "jpeg"], key=f"uploader_{st.session_state.uploader_key}")
         
         if st.session_state.get("role") == "master":
             model_choice = st.radio("🤖 选择 AI 引擎算力档位：", 
@@ -397,9 +409,9 @@ else:
             )
             actual_model_name = "gemini-2.5-pro" if "Pro" in model_choice else "gemini-2.5-flash"
         else:
-            model_choice = st.radio("🤖 选择 AI 引擎算力档位：", 
-                ["⚡ 极速版 (Flash - 代理商专属/不限流)"],
-                help="当前为代理商沙盒模式，默认调用稳定不限流的极速引擎。如需开启 Pro 极限算力，请联系主理人！"
+            model_choice = st.radio("🤖 核心推演引擎：", 
+                ["⚡ 商业旗舰版 (稳定极速/不限流)"],
+                help="当前为代理商沙盒模式，默认调用商业级稳定解析引擎。"
             )
             actual_model_name = "gemini-2.5-flash"
             
@@ -409,7 +421,7 @@ else:
         if "auto_json_result" not in st.session_state:
             st.session_state.auto_json_result = ""
 
-        button_label = "🔥 启动 Pro 视觉解析引擎" if "Pro" in model_choice else "⚡ 启动 Flash 极速解析"
+        button_label = "🔥 启动 Pro 视觉解析引擎" if "Pro" in model_choice else "⚡ 启动旗舰解析引擎"
         
         if st.button(button_label, type="primary", use_container_width=True):
             if uploaded_img is None:
@@ -562,8 +574,13 @@ if page_selection == "📊 全息能量档案":
         selected_record, data_to_render = render_history_sidebar("运势版", "fortune")
         
         if selected_record == "-- 新建档案 / 自动生成新数据 --":
-            raw_json_input = st.sidebar.text_area("⚙️ 底层数据(可手动修改)", value=st.session_state.auto_json_result, height=200)
-            if st.sidebar.button("🔄 渲染右侧报告", type="primary", use_container_width=True): pass
+            # 为租户彻底隐藏底层JSON黑框
+            if st.session_state.get("role") == "master":
+                raw_json_input = st.sidebar.text_area("⚙️ 底层数据(可手动修改)", value=st.session_state.auto_json_result, height=200)
+                if st.sidebar.button("🔄 渲染右侧报告", type="primary", use_container_width=True): pass
+            else:
+                raw_json_input = st.session_state.auto_json_result
+                
             if raw_json_input.strip():
                 try: data_to_render = parse_clean_json(raw_json_input)
                 except: st.error("⚠️ 解析失败，JSON不完整。")
@@ -692,8 +709,13 @@ elif page_selection == "👁️ 内核透视矩阵":
         selected_record_npd, data_to_render = render_history_sidebar("人格版", "npd")
 
         if selected_record_npd == "-- 新建档案 / 自动生成新数据 --":
-            raw_json_input = st.sidebar.text_area("⚙️ 底层数据(可手动修改)", value=st.session_state.auto_json_result, height=200)
-            if st.sidebar.button("🔄 渲染右侧报告", type="primary", use_container_width=True): pass
+            # 为租户彻底隐藏底层JSON黑框
+            if st.session_state.get("role") == "master":
+                raw_json_input = st.sidebar.text_area("⚙️ 底层数据(可手动修改)", value=st.session_state.auto_json_result, height=200)
+                if st.sidebar.button("🔄 渲染右侧报告", type="primary", use_container_width=True): pass
+            else:
+                raw_json_input = st.session_state.auto_json_result
+                
             if raw_json_input.strip():
                 try: data_to_render = parse_clean_json(raw_json_input)
                 except: st.error("⚠️ 解析失败。")
@@ -778,8 +800,13 @@ elif page_selection == "💞 双人宿命羁绊 (合盘版)":
         selected_record_syn, data_to_render = render_history_sidebar("合盘版", "syn")
 
         if selected_record_syn == "-- 新建档案 / 自动生成新数据 --":
-            raw_json_input = st.sidebar.text_area("⚙️ 底层数据(可手动修改)", value=st.session_state.auto_json_result, height=200)
-            if st.sidebar.button("🔄 渲染右侧报告", type="primary", use_container_width=True): pass
+            # 为租户彻底隐藏底层JSON黑框
+            if st.session_state.get("role") == "master":
+                raw_json_input = st.sidebar.text_area("⚙️ 底层数据(可手动修改)", value=st.session_state.auto_json_result, height=200)
+                if st.sidebar.button("🔄 渲染右侧报告", type="primary", use_container_width=True): pass
+            else:
+                raw_json_input = st.session_state.auto_json_result
+                
             if raw_json_input.strip():
                 try: data_to_render = parse_clean_json(raw_json_input)
                 except: st.error("⚠️ 解析失败。")
@@ -891,8 +918,13 @@ elif page_selection == "💰 流年财富透视矩阵 (搞钱专属)":
         selected_record_wealth, data_to_render = render_history_sidebar("财富版", "wealth")
 
         if selected_record_wealth == "-- 新建档案 / 自动生成新数据 --":
-            raw_json_input = st.sidebar.text_area("⚙️ 底层数据(可手动修改)", value=st.session_state.auto_json_result, height=200)
-            if st.sidebar.button("🔄 渲染右侧报告", type="primary", use_container_width=True): pass
+            # 为租户彻底隐藏底层JSON黑框
+            if st.session_state.get("role") == "master":
+                raw_json_input = st.sidebar.text_area("⚙️ 底层数据(可手动修改)", value=st.session_state.auto_json_result, height=200)
+                if st.sidebar.button("🔄 渲染右侧报告", type="primary", use_container_width=True): pass
+            else:
+                raw_json_input = st.session_state.auto_json_result
+                
             if raw_json_input.strip():
                 try: data_to_render = parse_clean_json(raw_json_input)
                 except: st.error("⚠️ 解析失败，请检查 JSON 格式。")
