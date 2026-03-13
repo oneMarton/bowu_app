@@ -313,12 +313,12 @@ else:
                     st.rerun()
                 elif pwd in auth_pool:
                     auth_info = auth_pool[pwd]
-                    auth_type = auth_info.get("type", "count") # 兼容老数据默认为次卡
+                    auth_type = auth_info.get("type", "count") 
                     
                     if auth_type == "count":
                         if auth_info.get("remaining_uses", 0) > 0:
                             auth_pool[pwd]["remaining_uses"] -= 1
-                            push_auth_pool(auth_pool) # 实时扣除云端次数
+                            push_auth_pool(auth_pool)
                             st.session_state.authenticated = True
                             st.session_state.role = "guest"
                             st.session_state.current_user = pwd
@@ -589,13 +589,37 @@ if page_selection == "📊 全息能量档案":
         st.markdown("### 📈 个人四维波动矩阵")
         df = pd.DataFrame(data["折线图"])
         fig = go.Figure()
-        fig.add_trace(go.Scatter(x=df["日期"], y=df["财富"], mode='lines+markers', name='💰 财富运势', line=dict(color='#FFD700', width=3, shape='spline')))
-        fig.add_trace(go.Scatter(x=df["日期"], y=df["感情"], mode='lines+markers', name='❤️ 感情/情绪', line=dict(color='#FF69B4', width=3, shape='spline')))
-        fig.add_trace(go.Scatter(x=df["日期"], y=df["事业"], mode='lines+markers', name='🚀 事业势能', line=dict(color='#00E5FF', width=3, shape='spline')))
-        fig.add_trace(go.Scatter(x=df["日期"], y=df["健康"], mode='lines+markers', name='🛡️ 健康机能', line=dict(color='#00FF7F', width=2, dash='dot', shape='spline')))
-        fig.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', xaxis_type='category', legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5), hovermode="x unified", height=450, margin=dict(l=0, r=0, t=40, b=0), dragmode=False)
-        fig.update_xaxes(fixedrange=True)
-        fig.update_yaxes(fixedrange=True)
+        
+        # UI 重构：镂空霓虹发光锚点，增加手机触控面积
+        lines_cfg = [
+            ("财富", '💰 财富运势', '#FFD700', 'solid'),
+            ("感情", '❤️ 感情/情绪', '#FF69B4', 'solid'),
+            ("事业", '🚀 事业势能', '#00E5FF', 'solid'),
+            ("健康", '🛡️ 健康机能', '#00FF7F', 'dot')
+        ]
+        
+        for col, name, color, dash in lines_cfg:
+            fig.add_trace(go.Scatter(
+                x=df["日期"], y=df[col], 
+                mode='lines+markers', 
+                name=name, 
+                line=dict(color=color, width=3, dash=dash, shape='spline'),
+                marker=dict(size=12, color='#0E1117', line=dict(width=2.5, color=color)), # 增大触控面积，变为空心霓虹点
+                hovertemplate=f"<b>{name}</b>: %{{y}}分<extra></extra>"
+            ))
+
+        fig.update_layout(
+            plot_bgcolor='rgba(0,0,0,0)', 
+            paper_bgcolor='rgba(0,0,0,0)', 
+            xaxis=dict(showgrid=False, color='#888', tickfont=dict(size=11)),
+            yaxis=dict(gridcolor='rgba(255,255,255,0.05)', color='#666', zeroline=False, range=[0, 105]),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5, font=dict(size=11, color="#ccc")), 
+            hovermode="x unified", 
+            hoverlabel=dict(bgcolor="rgba(20,20,30,0.95)", bordercolor="rgba(255,255,255,0.2)", font_size=14, font_color="white"),
+            height=400, 
+            margin=dict(l=10, r=10, t=50, b=10), 
+            dragmode=False
+        )
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
         st.markdown("---")
@@ -654,6 +678,7 @@ if page_selection == "📊 全息能量档案":
                 st.markdown("---")
                 st.markdown("### 🔗 专属交付链接 (自动隐藏后台并免密)")
                 st.caption("👇 点击下方代码框右上角的【复制图标】，即可一键复制并发送给客户！")
+                st.warning("⚠️ **防拦截提示**：微信可直接打开；**QQ环境**常拦截动态图表，请务必叮嘱 QQ 客户【复制链接，用手机自带浏览器打开】！")
                 base_url = "https://bowuapp-test.streamlit.app/"
                 encoded_cat = urllib.parse.quote("运势版")
                 encoded_id = urllib.parse.quote(selected_record)
@@ -688,14 +713,21 @@ elif page_selection == "👁️ 内核透视矩阵":
         st.markdown("### 🕸️ 潜意识六维雷达图 (暗黑三角检测)")
         categories = list(data["雷达图"].keys()); values = list(data["雷达图"].values())
         values.append(values[0]); categories.append(categories[0])
-        fig = go.Figure(go.Scatterpolar(r=values, theta=categories, fill='toself', fillcolor='rgba(255, 75, 75, 0.4)', line=dict(color='#FF4B4B', width=2)))
+        fig = go.Figure(go.Scatterpolar(
+            r=values, theta=categories, fill='toself', 
+            fillcolor='rgba(255, 75, 75, 0.3)', 
+            line=dict(color='#FF4B4B', width=2),
+            marker=dict(size=10, color='#0E1117', line=dict(width=2, color='#FF4B4B')), # 添加可点击的大锚点
+            hovertemplate="%{theta}: %{r}分<extra></extra>"
+        ))
         fig.update_layout(
             polar=dict(
                 bgcolor='rgba(0,0,0,0)', 
-                radialaxis=dict(visible=True, range=[0, 100], color='rgba(255,255,255,0.5)', gridcolor='rgba(255,255,255,0.1)'), 
-                angularaxis=dict(color='white', gridcolor='rgba(255,255,255,0.1)', tickfont=dict(size=11))
+                radialaxis=dict(visible=True, range=[0, 100], color='rgba(255,255,255,0.3)', gridcolor='rgba(255,255,255,0.1)', tickfont=dict(size=10)), 
+                angularaxis=dict(color='white', gridcolor='rgba(255,255,255,0.1)', tickfont=dict(size=12))
             ), 
             showlegend=False, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', 
+            hoverlabel=dict(bgcolor="rgba(20,20,30,0.95)", bordercolor="#FF4B4B", font_size=14, font_color="white"),
             height=400, dragmode=False, margin=dict(l=85, r=85, t=30, b=30)
         )
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
@@ -732,6 +764,7 @@ elif page_selection == "👁️ 内核透视矩阵":
                 st.markdown("---")
                 st.markdown("### 🔗 专属交付链接 (自动隐藏后台并免密)")
                 st.caption("👇 点击下方代码框右上角的【复制图标】，即可一键复制并发送给客户！")
+                st.warning("⚠️ **防拦截提示**：微信可直接打开；**QQ环境**常拦截动态图表，请务必叮嘱 QQ 客户【复制链接，用手机自带浏览器打开】！")
                 base_url = "https://bowuapp-test.streamlit.app/"
                 encoded_cat = urllib.parse.quote("人格版")
                 encoded_id = urllib.parse.quote(selected_record_npd)
@@ -788,15 +821,26 @@ elif page_selection == "💞 双人宿命羁绊 (合盘版)":
         val_A = data["双人雷达图"]["A方"] + [data["双人雷达图"]["A方"][0]]
         val_B = data["双人雷达图"]["B方"] + [data["双人雷达图"]["B方"][0]]
         fig_radar = go.Figure()
-        fig_radar.add_trace(go.Scatterpolar(r=val_A, theta=cat_closed, fill='toself', name='A方(如女方)', fillcolor='rgba(0, 229, 255, 0.4)', line=dict(color='#00E5FF', width=2)))
-        fig_radar.add_trace(go.Scatterpolar(r=val_B, theta=cat_closed, fill='toself', name='B方(如男方)', fillcolor='rgba(255, 105, 180, 0.4)', line=dict(color='#FF69B4', width=2)))
+        fig_radar.add_trace(go.Scatterpolar(
+            r=val_A, theta=cat_closed, fill='toself', name='A方(如女方)', 
+            fillcolor='rgba(0, 229, 255, 0.3)', line=dict(color='#00E5FF', width=2),
+            marker=dict(size=10, color='#0E1117', line=dict(width=2, color='#00E5FF')),
+            hovertemplate="A方 %{theta}: %{r}分<extra></extra>"
+        ))
+        fig_radar.add_trace(go.Scatterpolar(
+            r=val_B, theta=cat_closed, fill='toself', name='B方(如男方)', 
+            fillcolor='rgba(255, 105, 180, 0.3)', line=dict(color='#FF69B4', width=2),
+            marker=dict(size=10, color='#0E1117', line=dict(width=2, color='#FF69B4')),
+            hovertemplate="B方 %{theta}: %{r}分<extra></extra>"
+        ))
         fig_radar.update_layout(
             polar=dict(
                 bgcolor='rgba(0,0,0,0)', 
-                radialaxis=dict(visible=True, range=[0, 100], color='rgba(255,255,255,0.5)', gridcolor='rgba(255,255,255,0.1)'), 
-                angularaxis=dict(color='white', gridcolor='rgba(255,255,255,0.1)', tickfont=dict(size=11))
+                radialaxis=dict(visible=True, range=[0, 100], color='rgba(255,255,255,0.3)', gridcolor='rgba(255,255,255,0.1)', tickfont=dict(size=10)), 
+                angularaxis=dict(color='white', gridcolor='rgba(255,255,255,0.1)', tickfont=dict(size=12))
             ), 
-            showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.1, xanchor="center", x=0.5), 
+            showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.1, xanchor="center", x=0.5, font=dict(color="white")), 
+            hoverlabel=dict(bgcolor="rgba(20,20,30,0.95)", font_size=14, font_color="white"),
             plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', 
             height=420, dragmode=False, margin=dict(l=85, r=85, t=30, b=30)
         )
@@ -833,6 +877,7 @@ elif page_selection == "💞 双人宿命羁绊 (合盘版)":
                 st.markdown("---")
                 st.markdown("### 🔗 专属交付链接 (自动隐藏后台并免密)")
                 st.caption("👇 点击下方代码框右上角的【复制图标】，即可一键复制并发送给客户！")
+                st.warning("⚠️ **防拦截提示**：微信可直接打开；**QQ环境**常拦截动态图表，请务必叮嘱 QQ 客户【复制链接，用手机自带浏览器打开】！")
                 base_url = "https://bowuapp-test.streamlit.app/"
                 encoded_cat = urllib.parse.quote("合盘版")
                 encoded_id = urllib.parse.quote(selected_record_syn)
@@ -868,14 +913,21 @@ elif page_selection == "💰 流年财富透视矩阵 (搞钱专属)":
         categories = list(data["搞钱六维雷达图"]["维度"])
         values = list(data["搞钱六维雷达图"]["分值"])
         values.append(values[0]); categories.append(categories[0])
-        fig = go.Figure(go.Scatterpolar(r=values, theta=categories, fill='toself', fillcolor='rgba(255, 215, 0, 0.4)', line=dict(color='#FFD700', width=2)))
+        fig = go.Figure(go.Scatterpolar(
+            r=values, theta=categories, fill='toself', 
+            fillcolor='rgba(255, 215, 0, 0.3)', 
+            line=dict(color='#FFD700', width=2),
+            marker=dict(size=10, color='#0E1117', line=dict(width=2, color='#FFD700')),
+            hovertemplate="%{theta}: %{r}分<extra></extra>"
+        ))
         fig.update_layout(
             polar=dict(
                 bgcolor='rgba(0,0,0,0)', 
-                radialaxis=dict(visible=True, range=[0, 100], color='rgba(255,255,255,0.5)', gridcolor='rgba(255,255,255,0.1)'), 
-                angularaxis=dict(color='white', gridcolor='rgba(255,255,255,0.1)', tickfont=dict(size=11))
+                radialaxis=dict(visible=True, range=[0, 100], color='rgba(255,255,255,0.3)', gridcolor='rgba(255,255,255,0.1)', tickfont=dict(size=10)), 
+                angularaxis=dict(color='white', gridcolor='rgba(255,255,255,0.1)', tickfont=dict(size=12))
             ), 
             showlegend=False, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', 
+            hoverlabel=dict(bgcolor="rgba(20,20,30,0.95)", bordercolor="#FFD700", font_size=14, font_color="white"),
             height=400, dragmode=False, margin=dict(l=85, r=85, t=30, b=30)
         )
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
@@ -920,6 +972,7 @@ elif page_selection == "💰 流年财富透视矩阵 (搞钱专属)":
                 st.markdown("---")
                 st.markdown("### 🔗 专属交付链接 (自动隐藏后台并免密)")
                 st.caption("👇 点击下方代码框右上角的【复制图标】，即可一键复制并发送给老板！")
+                st.warning("⚠️ **防拦截提示**：微信可直接打开；**QQ环境**常拦截动态图表，请务必叮嘱 QQ 客户【复制链接，用手机自带浏览器打开】！")
                 base_url = "https://bowuapp-test.streamlit.app/"
                 encoded_cat = urllib.parse.quote("财富版")
                 encoded_id = urllib.parse.quote(selected_record_wealth)
