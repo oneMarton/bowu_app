@@ -313,8 +313,10 @@ else:
                     st.rerun()
                 elif pwd in auth_pool:
                     auth_info = auth_pool[pwd]
-                    if auth_info.get("type") == "count":
-                        if auth_info["remaining_uses"] > 0:
+                    auth_type = auth_info.get("type", "count") # 兼容老数据默认为次卡
+                    
+                    if auth_type == "count":
+                        if auth_info.get("remaining_uses", 0) > 0:
                             auth_pool[pwd]["remaining_uses"] -= 1
                             push_auth_pool(auth_pool) # 实时扣除云端次数
                             st.session_state.authenticated = True
@@ -323,6 +325,22 @@ else:
                             st.rerun()
                         else:
                             st.error("❌ 该授权码的使用次数（次卡）已耗尽！请联系主理人续费。")
+                    elif auth_type == "date":
+                        expire_str = auth_info.get("expire_date", "2000-01-01")
+                        expire_date = datetime.strptime(expire_str, "%Y-%m-%d").date()
+                        today_date = datetime.now(timezone(timedelta(hours=8))).date()
+                        if today_date <= expire_date:
+                            st.session_state.authenticated = True
+                            st.session_state.role = "guest"
+                            st.session_state.current_user = pwd
+                            st.rerun()
+                        else:
+                            st.error(f"❌ 该授权码已于 {expire_str} 过期！请联系主理人续费。")
+                    elif auth_type == "infinite":
+                        st.session_state.authenticated = True
+                        st.session_state.role = "guest"
+                        st.session_state.current_user = pwd
+                        st.rerun()
                 else:
                     st.error("❌ 密钥错误或不存在，拒绝访问！触发防盗刷警报。")
                 
@@ -419,12 +437,30 @@ else:
             with auth_tab1:
                 new_pwd = st.text_input("自定义新密码：", placeholder="如: guest01", key="new_pwd_input")
                 pwd_memo = st.text_input("备注(发给谁的)：", placeholder="如: 上海代理老王", key="pwd_memo_input")
-                use_count = st.number_input("设置可用登录次数：", min_value=1, value=10, step=1)
-                if st.button("✅ 生成次卡", use_container_width=True):
+                
+                card_type = st.radio("💳 选择授权卡类型：", ["🔢 计次卡", "📅 日期卡", "♾️ 无限子卡"], horizontal=True)
+                
+                use_count = 10
+                expire_date = datetime.now().date()
+                
+                if "计次卡" in card_type:
+                    use_count = st.number_input("设置可用登录次数：", min_value=1, value=10, step=1)
+                elif "日期卡" in card_type:
+                    expire_date = st.date_input("设置到期时间 (含当日)：", value=datetime.now() + timedelta(days=30))
+                else:
+                    st.info("💡 无限子卡：无任何次数和时间限制，建议仅发给内部核心合伙人(如:阿周)。")
+                
+                if st.button("✅ 生成授权码", use_container_width=True):
                     if new_pwd.strip():
-                        auth_pool[new_pwd.strip()] = {"type": "count", "remaining_uses": int(use_count), "memo": pwd_memo}
+                        if "计次卡" in card_type:
+                            auth_pool[new_pwd.strip()] = {"type": "count", "remaining_uses": int(use_count), "memo": pwd_memo}
+                        elif "日期卡" in card_type:
+                            auth_pool[new_pwd.strip()] = {"type": "date", "expire_date": expire_date.strftime("%Y-%m-%d"), "memo": pwd_memo}
+                        else:
+                            auth_pool[new_pwd.strip()] = {"type": "infinite", "memo": pwd_memo}
+                            
                         push_auth_pool(auth_pool)
-                        st.success(f"密码 {new_pwd} 已生效！"); st.rerun()
+                        st.success(f"✅ 密码 {new_pwd} 已生效！"); st.rerun()
                     else: st.error("请填写密码！")
                         
             with auth_tab2:
@@ -433,7 +469,26 @@ else:
                     st.info("当前没有分发任何密码。")
                 else:
                     for p, info in auth_pool.items():
-                        st.markdown(f"<div style='background:rgba(255,255,255,0.05); padding:10px; border-radius:5px; margin-bottom:10px; border-left:3px solid #00E5FF;'><b>密码:</b> <code style='color:#00E5FF;'>{p}</code><br><span style='font-size:12px; color:#888;'>备注: {info.get('memo', '无')} | 🔢 剩余: {info.get('remaining_uses')} 次</span></div>", unsafe_allow_html=True)
+                        c_type = info.get("type", "count")
+                        memo = info.get('memo', '无')
+                        
+                        if c_type == "count":
+                            status_text = f"🔢 剩余: {info.get('remaining_uses', 0)} 次"
+                        elif c_type == "date":
+                            exp_str = info.get("expire_date", "未知")
+                            try:
+                                exp_d = datetime.strptime(exp_str, "%Y-%m-%d").date()
+                                today_d = datetime.now(timezone(timedelta(hours=8))).date()
+                                if today_d <= exp_d:
+                                    status_text = f"📅 到期: {exp_str} (🟢 正常)"
+                                else:
+                                    status_text = f"📅 到期: {exp_str} (🔴 过期)"
+                            except:
+                                status_text = f"📅 到期: {exp_str}"
+                        elif c_type == "infinite":
+                            status_text = "♾️ 无限使用 (内部子卡)"
+                            
+                        st.markdown(f"<div style='background:rgba(255,255,255,0.05); padding:10px; border-radius:5px; margin-bottom:10px; border-left:3px solid #00E5FF;'><b>密码:</b> <code style='color:#00E5FF;'>{p}</code><br><span style='font-size:12px; color:#888;'>备注: {memo} | {status_text}</span></div>", unsafe_allow_html=True)
                         if st.button(f"🗑️ 删除 {p}", key=f"del_pwd_{p}"):
                             del auth_pool[p]
                             push_auth_pool(auth_pool)
