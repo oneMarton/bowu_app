@@ -390,14 +390,13 @@ else:
     }
     
     with st.sidebar.expander("🚀 一键上传断盘", expanded=True):
-        col_cap, col_reset = st.columns([2, 1])
-        with col_cap:
-            st.caption("直接拖入【问真八字】截图...")
-        with col_reset:
-            if st.button("🔄 清空/重置", help="测完一个客户后，点击一键清空图片和数据", use_container_width=True):
-                st.session_state.uploader_key += 1
-                st.session_state.auto_json_result = ""
-                st.rerun()
+        st.caption("直接拖入【问真八字】截图，系统将自动读取并生成最终报告！")
+
+        # 优化 UI：将清空重置按钮改为全宽，放在最显眼的位置，彻底解决列挤压变形问题
+        if st.button("🔄 测完换人 (一键清空记录)", help="测完当前客户后，点击此按钮清理所有残留数据和图片", use_container_width=True):
+            st.session_state.uploader_key += 1
+            st.session_state.auto_json_result = ""
+            st.rerun()
 
         # 使用动态 key，实现一键清空文件上传器
         uploaded_img = st.file_uploader("📥 拖入或点击上传排盘截图", type=["png", "jpg", "jpeg"], key=f"uploader_{st.session_state.uploader_key}")
