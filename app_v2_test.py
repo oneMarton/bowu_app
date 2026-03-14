@@ -180,7 +180,7 @@ def get_json_template(engine_name):
   }
 }"""
 
-def analyze_bazi_image(image_file, persona, background, engine_type, model_name):
+def analyze_bazi_image(image_files, persona, background, engine_type, model_name):
     if not API_KEYS:
         return "❌ 致命错误：未检测到 API Key！"
     
@@ -188,7 +188,11 @@ def analyze_bazi_image(image_file, persona, background, engine_type, model_name)
         current_key = random.choice(API_KEYS)
         genai.configure(api_key=current_key)
         
-        img = Image.open(image_file)
+        # 支持单图或多图(合盘)传入
+        if not isinstance(image_files, list):
+            image_files = [image_files]
+            
+        images = [Image.open(img) for img in image_files]
         json_template = get_json_template(engine_type)
         today_str = datetime.now(timezone(timedelta(hours=8))).strftime('%Y年%m月%d日')
         
@@ -217,9 +221,12 @@ def analyze_bazi_image(image_file, persona, background, engine_type, model_name)
         sys_instruct = "你现在是《拨雾计划》的顶尖盲派命理宗师兼商业心理顾问。你的语言风格极其犀利、充满现实指导意义，且带有强烈的降维打击和压迫感。你绝不说正确的废话，直击人性暗面与现实痛点。"
         gen_config = genai.types.GenerationConfig(temperature=0.8, top_p=0.9)
 
+        # 核心改造：将多张图片和 prompt 打包传递给 AI 模型
+        payload = [prompt] + images
+
         try:
             model = genai.GenerativeModel(model_name=model_name, system_instruction=sys_instruct, generation_config=gen_config)
-            response = model.generate_content([prompt, img])
+            response = model.generate_content(payload)
             return response.text
         except Exception as e1:
             error_msg = str(e1)
@@ -228,7 +235,7 @@ def analyze_bazi_image(image_file, persona, background, engine_type, model_name)
                 try:
                     fallback_model = model_name.replace("pro", "flash")
                     model2 = genai.GenerativeModel(model_name=fallback_model, system_instruction=sys_instruct, generation_config=gen_config)
-                    res2 = model2.generate_content([prompt, img])
+                    res2 = model2.generate_content(payload)
                     return res2.text
                 except Exception as e2:
                     return f"❌ 引擎级联崩溃。主引擎及备用引擎均无响应: {str(e2)}"
@@ -411,7 +418,9 @@ else:
             st.session_state.auto_json_result = ""
             st.rerun()
 
-        uploaded_img = st.file_uploader("📥 拖入或点击上传排盘截图", type=["png", "jpg", "jpeg"], key=f"uploader_{st.session_state.uploader_key}")
+        # 根据当前页面类型动态改变上传提示和是否支持多图
+        upload_label = "📥 拖入或点击上传排盘截图 (合盘请同时传2张)" if page_selection == "💞 双人宿命羁绊 (合盘版)" else "📥 拖入或点击上传排盘截图"
+        uploaded_imgs = st.file_uploader(upload_label, type=["png", "jpg", "jpeg"], accept_multiple_files=True, key=f"uploader_{st.session_state.uploader_key}")
         
         if st.session_state.get("role") == "master":
             model_choice = st.radio("🤖 选择 AI 引擎算力档位：", 
@@ -435,12 +444,15 @@ else:
         button_label = "🔥 启动 Pro 视觉解析引擎" if "Pro" in model_choice else "⚡ 启动旗舰解析引擎"
         
         if st.button(button_label, type="primary", use_container_width=True):
-            if uploaded_img is None:
-                st.error("⚠️ 请先上传一张排盘截图！")
+            if not uploaded_imgs:
+                st.error("⚠️ 请先上传排盘截图！")
             else:
+                if page_selection == "💞 双人宿命羁绊 (合盘版)" and len(uploaded_imgs) == 1:
+                    st.info("ℹ️ 提示：检测到合盘模式下只上传了1张图，系统将尝试从中读取双人信息。如遇不准，建议分2张上传。")
+                
                 loading_msg = "🔮 拨雾引擎正在深度扫描排盘数据... (需15-30秒，请勿频繁点击)" if "Pro" in model_choice else "⚡ 拨雾引擎正在极速扫描排盘数据... (需5-10秒)"
                 with st.spinner(loading_msg):
-                    result_text = analyze_bazi_image(uploaded_img, persona_tag, birth_info_tag, page_selection, actual_model_name)
+                    result_text = analyze_bazi_image(uploaded_imgs, persona_tag, birth_info_tag, page_selection, actual_model_name)
                     
                     if "❌" in result_text:
                         st.error(result_text)
@@ -854,7 +866,7 @@ elif page_selection == "💞 双人宿命羁绊 (合盘版)":
             if raw_json_input.strip():
                 try: data_to_render = parse_clean_json(raw_json_input)
                 except: st.error("⚠️ 解析失败。")
-            else: st.markdown("<div class='empty-state'><h2>💞 引擎待机中...</h2><p>请在左侧上传双人排盘截图(拼成一张图)，启动全自动解析。</p></div>", unsafe_allow_html=True)
+            else: st.markdown("<div class='empty-state'><h2>💞 引擎待机中...</h2><p>请在左侧上传双人排盘截图(拼成一张图或直接选择两张图)，启动全自动解析。</p></div>", unsafe_allow_html=True)
     else:
         doc = db.document(f"{get_db_path('records')}/{client_id}").get()
         data_to_render = doc.to_dict() if doc.exists else None
