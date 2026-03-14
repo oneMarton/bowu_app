@@ -364,7 +364,21 @@ else:
         div[data-testid="stVerticalBlock"] > div.element-container:nth-child(4) { animation-delay: 0.2s; }
         .empty-state { text-align: center; padding: 100px 20px; border-radius: 10px; background-color: rgba(255, 255, 255, 0.02); border: 1px dashed rgba(255, 255, 255, 0.1); margin-top: 50px; }
         .save-module { background-color: rgba(0, 229, 255, 0.05); padding: 20px; border-radius: 10px; border-left: 4px solid #00E5FF; margin-top: 40px; }
-        .teleprompter { background-color: rgba(255, 215, 0, 0.1); border: 1px solid #FFD700; border-radius: 10px; padding: 15px; margin-bottom: 20px; color: #FFD700; }
+        
+        /* 动态提词器炫酷 HUD 样式 */
+        .teleprompter { 
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.1) 0%, rgba(255, 140, 0, 0.05) 100%);
+            border: 1px solid rgba(255, 215, 0, 0.4); 
+            border-radius: 12px; 
+            padding: 20px; 
+            margin-bottom: 25px; 
+            color: #FAFAFA;
+            box-shadow: 0 4px 15px rgba(255, 215, 0, 0.1);
+        }
+        .teleprompter h4 { color: #FFD700; border-bottom: 1px dashed rgba(255,215,0,0.3); padding-bottom: 10px; font-weight: bold;}
+        .teleprompter p { font-size: 15px; line-height: 1.6; margin-bottom: 10px; }
+        .teleprompter b { color: #FFD700; }
+        
         div.row-widget.stRadio > div { flex-direction: row; align-items: center; }
         </style>
     """, unsafe_allow_html=True)
@@ -392,13 +406,11 @@ else:
     with st.sidebar.expander("🚀 一键上传断盘", expanded=True):
         st.caption("直接拖入【问真八字】截图，系统将自动读取并生成最终报告！")
 
-        # 优化 UI：将清空重置按钮改为全宽，放在最显眼的位置，彻底解决列挤压变形问题
         if st.button("🔄 测完换人 (一键清空记录)", help="测完当前客户后，点击此按钮清理所有残留数据和图片", use_container_width=True):
             st.session_state.uploader_key += 1
             st.session_state.auto_json_result = ""
             st.rerun()
 
-        # 使用动态 key，实现一键清空文件上传器
         uploaded_img = st.file_uploader("📥 拖入或点击上传排盘截图", type=["png", "jpg", "jpeg"], key=f"uploader_{st.session_state.uploader_key}")
         
         if st.session_state.get("role") == "master":
@@ -507,14 +519,12 @@ else:
         st.sidebar.markdown("---")
 
     st.sidebar.markdown("### 🛠️ 商业转化工具")
-    show_teleprompter = st.sidebar.checkbox("👁️ 开启主理人销讲提词器", value=False)
+    show_teleprompter = st.sidebar.checkbox("👁️ 开启主理人动态提词器", value=False, help="开启后，系统会根据右侧生成的客户数据，自动为你拼凑一套极具杀伤力的销讲读稿话术！")
     st.sidebar.markdown("---")
 
 # ================= 🚀 核心重构：上帝视角与沙盒隔离提取器 =================
 def render_history_sidebar(cat_name, state_key):
     st.sidebar.markdown("### 📂 客户历史档案库")
-    
-    # 每次都从 Firestore 实时拉取该分类数据
     history_data = load_all_records(cat_name)
     
     if st.session_state.get("role") == "master":
@@ -566,6 +576,12 @@ if not is_client_mode and st.session_state.get("new_link"):
         st.rerun()
     st.markdown("---")
 
+# 获取提取名字用于提词器
+def get_client_name(sel_record):
+    if sel_record and sel_record != "-- 新建档案 / 自动生成新数据 --":
+        return sel_record.split('(')[0].strip()
+    return "客户"
+
 # 【运势版】
 if page_selection == "📊 全息能量档案":
     if not is_client_mode:
@@ -573,7 +589,6 @@ if page_selection == "📊 全息能量档案":
         selected_record, data_to_render = render_history_sidebar("运势版", "fortune")
         
         if selected_record == "-- 新建档案 / 自动生成新数据 --":
-            # 为租户彻底隐藏底层JSON黑框
             if st.session_state.get("role") == "master":
                 raw_json_input = st.sidebar.text_area("⚙️ 底层数据(可手动修改)", value=st.session_state.auto_json_result, height=200)
                 if st.sidebar.button("🔄 渲染右侧报告", type="primary", use_container_width=True): pass
@@ -593,8 +608,26 @@ if page_selection == "📊 全息能量档案":
 
     if data_to_render and "总览" in data_to_render:
         data = data_to_render
+        
+        # 🟢 动态提词器逻辑 (运势版)
         if show_teleprompter and not is_client_mode:
-            st.markdown("<div class='teleprompter'><h4>㊙️ 内部销讲话术 (运势篇)</h4><p><b>💰 促单锚点：</b>引导客户关注折线图最低谷的那天，强调这是能量黑洞日，可顺势推销深度护航或风水布局方案。</p></div>", unsafe_allow_html=True)
+            lowest_score = 100; lowest_day = ""; lowest_metric = ""
+            if "折线图" in data:
+                for day_item in data["折线图"]:
+                    for metric in ["财富", "感情", "事业", "健康"]:
+                        if day_item.get(metric, 100) < lowest_score:
+                            lowest_score = day_item.get(metric, 100)
+                            lowest_day = day_item.get("日期", "")
+                            lowest_metric = metric
+            c_name = get_client_name(selected_record)
+            st.markdown(f"""
+            <div class='teleprompter'>
+                <h4 style='margin-top:0;'>㊙️ 运势版·动态销讲提词器</h4>
+                <p><b>🗣️ 切入痛点：</b>“{c_name}，你看你的能量波动图，发现问题了吗？在 <b>{lowest_day}</b> 这天，你的<b>【{lowest_metric}】</b>指标直接跌到了谷底（只有 {lowest_score} 分）！这就是我说的‘能量黑洞日’。”</p>
+                <p><b>🔥 制造危机：</b>“这天你极其容易遇到倒霉事或者被人坑，绝对不能做重大决定。如果你现在不提前干预，那天你肯定会非常难受。”</p>
+                <p><b>💰 顺势收单：</b>“不过别慌，你看下方系统给你开了‘战袍与能量干预包’。如果你觉得不稳，我可以专门为你起一卦，做个针对这天的【深度奇门化解/单点破局咨询】，你要不要深入看看？”</p>
+            </div>
+            """, unsafe_allow_html=True)
         
         if is_client_mode: st.markdown(f"<h2 style='text-align:center;'>🔮 {client_id.split('(')[0].strip()} 的全息能量档案</h2><br>", unsafe_allow_html=True)
         
@@ -606,7 +639,6 @@ if page_selection == "📊 全息能量档案":
         df = pd.DataFrame(data["折线图"])
         fig = go.Figure()
         
-        # UI 重构：镂空霓虹发光锚点，增加手机触控面积
         lines_cfg = [
             ("财富", '💰 财富运势', '#FFD700', 'solid'),
             ("感情", '❤️ 感情/情绪', '#FF69B4', 'solid'),
@@ -620,7 +652,7 @@ if page_selection == "📊 全息能量档案":
                 mode='lines+markers', 
                 name=name, 
                 line=dict(color=color, width=3, dash=dash, shape='spline'),
-                marker=dict(size=12, color='#0E1117', line=dict(width=2.5, color=color)), # 增大触控面积，变为空心霓虹点
+                marker=dict(size=12, color='#0E1117', line=dict(width=2.5, color=color)),
                 hovertemplate=f"<b>{name}</b>: %{{y}}分<extra></extra>"
             ))
 
@@ -632,9 +664,7 @@ if page_selection == "📊 全息能量档案":
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5, font=dict(size=11, color="#ccc")), 
             hovermode="x unified", 
             hoverlabel=dict(bgcolor="rgba(20,20,30,0.95)", bordercolor="rgba(255,255,255,0.2)", font_size=14, font_color="white"),
-            height=400, 
-            margin=dict(l=10, r=10, t=50, b=10), 
-            dragmode=False
+            height=400, margin=dict(l=10, r=10, t=50, b=10), dragmode=False
         )
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
@@ -708,7 +738,6 @@ elif page_selection == "👁️ 内核透视矩阵":
         selected_record_npd, data_to_render = render_history_sidebar("人格版", "npd")
 
         if selected_record_npd == "-- 新建档案 / 自动生成新数据 --":
-            # 为租户彻底隐藏底层JSON黑框
             if st.session_state.get("role") == "master":
                 raw_json_input = st.sidebar.text_area("⚙️ 底层数据(可手动修改)", value=st.session_state.auto_json_result, height=200)
                 if st.sidebar.button("🔄 渲染右侧报告", type="primary", use_container_width=True): pass
@@ -726,8 +755,25 @@ elif page_selection == "👁️ 内核透视矩阵":
 
     if data_to_render and "雷达图" in data_to_render:
         data = data_to_render
+        
+        # 🟢 动态提词器逻辑 (人格版)
         if show_teleprompter and not is_client_mode:
-            st.markdown("<div class='teleprompter'><h4>㊙️ 内部销讲话术</h4><p><b>🗣️ 专家金句：</b>“所有让你痛苦的关系，都是因为能量场被他压制了。看雷达图最尖锐的那个角，就是他刺伤你最深的地方。”</p></div>", unsafe_allow_html=True)
+            radar_dict = data.get("雷达图", {})
+            if radar_dict:
+                max_trait = max(radar_dict, key=radar_dict.get)
+                min_trait = min(radar_dict, key=radar_dict.get)
+            else:
+                max_trait = "某项特质"; min_trait = "某项特质"
+            
+            c_name = get_client_name(selected_record_npd)
+            st.markdown(f"""
+            <div class='teleprompter'>
+                <h4 style='margin-top:0;'>㊙️ 人格版·动态销讲提词器</h4>
+                <p><b>🗣️ 刺穿伪装：</b>“{c_name}，你看这张潜意识雷达图。你的<b>【{max_trait}】</b>极高，这是你的天赋，但也是让你极其内耗的执念。但真正拖垮你的，是你严重缺失的<b>【{min_trait}】</b>。”</p>
+                <p><b>🔥 建立共鸣：</b>“别人只能看到你伪装出来的面具，觉得你过得还不错，但我通过盘面看到的是你内心的巨大撕裂感。这份临床级诊断书上写的‘{data.get('深度解析', {}).get('暗影特质与预警', '')[:25]}...’，简直一针见血。”</p>
+                <p><b>💰 顺势收单：</b>“这份报告揭示了痛苦的根源。如果你不想再被这种状态折磨，我可以帮你做一次【1对1深度内核疗愈/针对性破局疏导】，把缺失的能量补回来，你要不要试一下？”</p>
+            </div>
+            """, unsafe_allow_html=True)
 
         if is_client_mode: st.markdown(f"<h2 style='text-align:center;'>👁️ {client_id.split('(')[0].strip()} 的内核透视矩阵</h2><br>", unsafe_allow_html=True)
 
@@ -738,7 +784,7 @@ elif page_selection == "👁️ 内核透视矩阵":
             r=values, theta=categories, fill='toself', 
             fillcolor='rgba(255, 75, 75, 0.3)', 
             line=dict(color='#FF4B4B', width=2),
-            marker=dict(size=10, color='#0E1117', line=dict(width=2, color='#FF4B4B')), # 添加可点击的大锚点
+            marker=dict(size=10, color='#0E1117', line=dict(width=2, color='#FF4B4B')),
             hovertemplate="%{theta}: %{r}分<extra></extra>"
         ))
         fig.update_layout(
@@ -799,7 +845,6 @@ elif page_selection == "💞 双人宿命羁绊 (合盘版)":
         selected_record_syn, data_to_render = render_history_sidebar("合盘版", "syn")
 
         if selected_record_syn == "-- 新建档案 / 自动生成新数据 --":
-            # 为租户彻底隐藏底层JSON黑框
             if st.session_state.get("role") == "master":
                 raw_json_input = st.sidebar.text_area("⚙️ 底层数据(可手动修改)", value=st.session_state.auto_json_result, height=200)
                 if st.sidebar.button("🔄 渲染右侧报告", type="primary", use_container_width=True): pass
@@ -817,8 +862,20 @@ elif page_selection == "💞 双人宿命羁绊 (合盘版)":
 
     if data_to_render and "双人雷达图" in data_to_render:
         data = data_to_render
+        
+        # 🟢 动态提词器逻辑 (合盘版)
         if show_teleprompter and not is_client_mode:
-            st.markdown("<div class='teleprompter'><h4>㊙️ 内部销讲话术</h4><p><b>💰 促单锚点：</b>引导客户看下方的防出轨和财富纠葛版块，推销常年情感顾问或改运咨询。</p></div>", unsafe_allow_html=True)
+            relation_type = data.get('合盘总评', {}).get('关系定性', '特殊缘分')
+            score = data.get('合盘总评', {}).get('契合度分数', 50)
+            
+            st.markdown(f"""
+            <div class='teleprompter'>
+                <h4 style='margin-top:0;'>㊙️ 合盘版·动态销讲提词器</h4>
+                <p><b>🗣️ 抛出定论：</b>“亲爱的，你们的合盘测算出来了。我直说了，这段关系在命理上属于典型的<b>【{relation_type}】</b>，你们的宿命契合度只有 <b>{score}</b> 分。”</p>
+                <p><b>🔥 放大风险：</b>“最让你揪心的其实不是性格磨合，你看报告中间的红色警戒区——【防出轨侦测】和【财务纠葛】。原局里带的雷区，是不可能靠你单方面委曲求全就能解决的。”</p>
+                <p><b>💰 顺势收单：</b>“感情不是儿戏，选错人不仅伤心还破财。如果你不想在这段关系里继续被吸血，或者想知道‘怎么通过风水行为去拿捏对方’，咱们可以开个【高阶合盘化解/情感陪跑】，我手把手教你怎么稳赚不赔。”</p>
+            </div>
+            """, unsafe_allow_html=True)
 
         if is_client_mode: st.markdown(f"<h2 style='text-align:center;'>💞 {client_id.split('(')[0].strip()} 的双人宿命羁绊</h2><br>", unsafe_allow_html=True)
 
@@ -917,7 +974,6 @@ elif page_selection == "💰 流年财富透视矩阵 (搞钱专属)":
         selected_record_wealth, data_to_render = render_history_sidebar("财富版", "wealth")
 
         if selected_record_wealth == "-- 新建档案 / 自动生成新数据 --":
-            # 为租户彻底隐藏底层JSON黑框
             if st.session_state.get("role") == "master":
                 raw_json_input = st.sidebar.text_area("⚙️ 底层数据(可手动修改)", value=st.session_state.auto_json_result, height=200)
                 if st.sidebar.button("🔄 渲染右侧报告", type="primary", use_container_width=True): pass
@@ -935,8 +991,26 @@ elif page_selection == "💰 流年财富透视矩阵 (搞钱专属)":
 
     if data_to_render and "搞钱六维雷达图" in data_to_render:
         data = data_to_render
+        
+        # 🟢 动态提词器逻辑 (财富版)
         if show_teleprompter and not is_client_mode:
-            st.markdown("<div class='teleprompter'><h4>㊙️ 内部销讲话术</h4><p><b>💰 促单锚点：</b>重点放大客户‘破财黑洞’的恐惧感，或者‘爆发节点’的贪婪感。顺势抛出高客单价的风水局或全年私教服务。</p></div>", unsafe_allow_html=True)
+            dims = data.get("搞钱六维雷达图", {}).get("维度", [])
+            scores = data.get("搞钱六维雷达图", {}).get("分值", [])
+            if dims and scores:
+                max_idx = scores.index(max(scores))
+                max_wealth_trait = dims[max_idx]
+            else:
+                max_wealth_trait = "某项核心能力"
+                
+            c_name = get_client_name(selected_record_wealth)
+            st.markdown(f"""
+            <div class='teleprompter'>
+                <h4 style='margin-top:0;'>㊙️ 财富版·动态销讲提词器</h4>
+                <p><b>🗣️ 拔高维度：</b>“{c_name}，你的财富基因完全解码了。系统显示，你最强的搞钱武器是<b>【{max_wealth_trait}】</b>，这份天命主场你一定要看懂，千万别在不适合你的赛道上瞎折腾！”</p>
+                <p><b>🔥 恐吓痛点：</b>“特别提醒你注意报告中间的‘流年动态’。里面的<b>【破财黑洞】</b>你务必看仔细！很多老板/打工人就是因为没避开这几个月，导致一年白干甚至背上债务或黑锅。这绝不是危言耸听。”</p>
+                <p><b>💰 顺势收单：</b>“这份报告只完成了诊断。如果你接下来有重大投资、合伙或者跳槽计划，最好能做一个【全年精准财运罗盘】或【个人招财风水局】，帮你提前把那个破财黑洞堵死。需要帮你安排吗？”</p>
+            </div>
+            """, unsafe_allow_html=True)
 
         if is_client_mode: st.markdown(f"<h2 style='text-align:center; color: #FFD700;'>💰 {client_id.split('(')[0].strip()} 的财富透视矩阵</h2><br>", unsafe_allow_html=True)
 
